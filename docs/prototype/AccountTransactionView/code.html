@@ -1,0 +1,251 @@
+<!DOCTYPE html><html lang="zh-TW" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>編輯交易 (EditTransactionView)</title>
+<!-- Tailwind CSS v3 with forms and container queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+            },
+            appBg: '#F8FAFC',
+            cardBorder: '#F1F5F9',
+            slateSub: '#64748B',
+            slateDark: '#0F172A',
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-scroll-and-base">
+    /* iOS smooth scrolling and base settings */
+    body {
+      -webkit-tap-highlight-color: transparent;
+      font-feature-settings: "tnum";
+      background-color: #F8FAFC;
+    }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 flex justify-center items-center min-h-screen antialiased text-slateDark selection:bg-brand-100">
+<!-- Mobile Frame Container (iOS Simulated Device) -->
+<div class="w-full max-w-md min-h-screen bg-[#F8FAFC] shadow-2xl relative flex flex-col pb-10 border-x border-slate-200/60 overflow-x-hidden">
+<!-- BEGIN: iOS StatusBar -->
+<header class="sticky top-0 z-30 bg-[#F8FAFC]/95 backdrop-blur-md pt-2 px-7 pb-1" data-purpose="ios-status-bar">
+<div class="flex justify-between items-center text-xs font-semibold tracking-tight text-slateDark select-none">
+<span class="text-[14px]">9:41</span>
+<div class="flex items-center space-x-1.5">
+<!-- Cellular signal -->
+<svg class="w-4 h-3 fill-current text-slate-800" viewBox="0 0 17 12">
+<rect height="3" rx="0.5" width="2.5" x="0" y="9"></rect>
+<rect height="5.5" rx="0.5" width="2.5" x="4" y="6.5"></rect>
+<rect height="8.5" rx="0.5" width="2.5" x="8" y="3.5"></rect>
+<rect height="11.5" rx="0.5" width="2.5" x="12" y="0.5"></rect>
+</svg>
+<!-- Wi-Fi -->
+<svg class="w-3.5 h-3 text-slate-800" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" viewBox="0 0 24 24">
+<path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"></path>
+</svg>
+<!-- Battery -->
+<div class="w-5 h-2.5 border border-slate-800 rounded-sm p-0.5 flex items-center">
+<div class="h-full bg-slate-800 rounded-2xs w-3/4"></div>
+</div>
+</div>
+</div>
+<!-- BEGIN: Navigation Header Bar -->
+<nav class="flex items-center justify-between py-3 select-none" data-purpose="modal-navigation">
+<button class="text-[16px] text-slateSub hover:text-slate-800 font-normal transition-colors active:opacity-60" type="button">
+          取消
+        </button>
+<h1 class="text-[17px] font-semibold text-slateDark tracking-tight">
+          編輯交易
+        </h1>
+<button class="text-[16px] font-bold text-[#10B981] hover:text-brand-600 transition-colors active:opacity-60" type="button">
+          儲存
+        </button>
+</nav>
+<!-- END: Navigation Header Bar -->
+</header>
+<!-- END: iOS StatusBar -->
+<!-- Scrollable Form Body -->
+<main class="flex-1 px-4 pt-1 pb-8 space-y-5" data-purpose="form-main-content">
+<!-- BEGIN: Transaction Type & Date Section -->
+<section data-purpose="section-transaction-attribute">
+<h2 class="text-[12px] font-medium text-slate-400 mb-1.5 px-1 tracking-wide">
+          交易屬性
+        </h2>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] overflow-hidden divide-y divide-slate-100">
+<!-- Row 1: Transaction Type Selector -->
+<div class="p-4 flex items-center justify-between">
+<span class="text-[15px] font-medium text-slate-800">交易類型</span>
+<!-- Interactive Type Dropdown Badge -->
+<div class="relative inline-block">
+<button class="flex items-center space-x-1.5 bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1.5 rounded-xl text-sm font-medium hover:bg-sky-100/80 active:scale-95 transition-all" type="button">
+<span class="text-sm font-bold leading-none">↘</span>
+<span class="">轉入<br></span>
+<svg class="w-3.5 h-3.5 text-sky-600 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+</button>
+</div>
+</div>
+<!-- Row 2: Transaction Date Picker -->
+<div class="p-4 flex items-center justify-between active:bg-slate-50/70 transition-colors cursor-pointer">
+<span class="text-[15px] font-medium text-slate-800">交易日期</span>
+<div class="flex items-center space-x-2 text-slate-700">
+<span class="text-[15px] tracking-wide font-normal font-mono text-slate-900">2024/10/15</span>
+<!-- Calendar Icon -->
+<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+<rect height="18" rx="2" ry="2" width="18" x="3" y="4"></rect>
+<line x1="16" x2="16" y1="2" y2="6"></line>
+<line x1="8" x2="8" y1="2" y2="6"></line>
+<line x1="3" x2="21" y1="10" y2="10"></line>
+</svg>
+<!-- iOS Chevron -->
+<svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Transaction Type & Date Section -->
+<!-- BEGIN: Account Association Section -->
+<section data-purpose="section-account-association">
+<h2 class="text-[12px] font-medium text-slate-400 mb-1.5 px-1 tracking-wide">
+          帳戶關聯
+        </h2>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] overflow-hidden divide-y divide-slate-100">
+<!-- Destination Account -->
+<div class="p-4 flex items-center justify-between active:bg-slate-50 transition-colors cursor-pointer">
+<div class="flex items-center space-x-2">
+<span class="text-[15px] font-medium text-slate-800">存入 / 目標帳戶</span>
+</div>
+<div class="flex items-center space-x-1.5 text-slate-700">
+<span class="text-[14px] text-slate-800 font-medium">台幣活存</span>
+
+<svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- Source/Counterparty Account -->
+<div class="p-4 flex items-center justify-between active:bg-slate-50 transition-colors cursor-pointer">
+<div class="flex items-center space-x-2">
+<span class="text-[15px] font-medium text-slate-800">來源 / 對象帳戶</span>
+</div>
+<div class="flex items-center space-x-1.5 text-slate-700">
+<span class="text-[14px] text-slate-800 font-medium">美元定存</span>
+<svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Account Association Section -->
+<!-- BEGIN: Amount and Currency Calculation Section -->
+<section data-purpose="section-amount-and-currency">
+<h2 class="text-[12px] font-medium text-slate-400 mb-1.5 px-1 tracking-wide">
+          金額與幣別設定
+        </h2>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] overflow-hidden">
+<!-- Mode Tabs / Switcher -->
+<div class="p-3 bg-slate-50/80 border-b border-slate-100">
+<div class="grid grid-cols-2 p-1 bg-slate-200/60 rounded-xl text-xs font-medium">
+<button class="py-1.5 bg-white text-slate-800 rounded-lg shadow-sm font-semibold text-center transition-all" type="button">
+                輸入金額與幣別
+              </button>
+<button class="py-1.5 text-slate-500 hover:text-slate-700 text-center transition-all" type="button">
+                直接指定結算金額
+              </button>
+</div>
+</div>
+<!-- Primary Amount Input -->
+<div class="p-4 flex items-center justify-between border-b border-slate-100">
+<div>
+<label class="block text-[13px] font-medium text-slate-500 mb-0.5" for="transaction-amount">交易金額 (Amount)</label>
+<div class="flex items-baseline space-x-1">
+<span class="text-sm font-semibold text-slate-400">NT$</span>
+<input class="text-2xl font-bold text-slate-900 border-none p-0 focus:ring-0 w-36 font-sans" id="transaction-amount" inputmode="decimal" type="text" value="50,000">
+</div>
+</div>
+<!-- Currency Selector Dropdown -->
+<div class="flex items-center">
+<button class="flex items-center space-x-1.5 bg-slate-100/90 text-slate-800 hover:bg-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors" type="button">
+<span class="">TWD (NT$)</span>
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+</div>
+<!-- Fee & Service Charge -->
+<div class="p-4 flex items-center justify-between border-b border-slate-100">
+<span class="text-[14px] text-slate-700">手續費 / 費用</span>
+<div class="flex items-center space-x-1 text-slate-400 text-sm">
+<span class="">NT$</span>
+<input class="w-16 text-right font-medium text-slate-800 border-none p-0 focus:ring-0 text-sm" inputmode="decimal" type="text" value="0">
+</div>
+</div>
+<!-- Settlement Summary Card Highlight -->
+<div class="p-4 bg-emerald-50/40 flex items-center justify-between">
+<div>
+<div class="text-[13px] font-semibold text-emerald-900">入帳結算總額</div>
+
+</div>
+<div class="text-right">
+<span class="text-[18px] font-bold text-emerald-600 font-mono tracking-tight">+ 50,000</span>
+<span class="text-xs font-semibold text-emerald-600 ml-0.5">TWD</span>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Amount and Currency Calculation Section -->
+<!-- BEGIN: Notes and Remarks Section -->
+<section data-purpose="section-notes-and-memo">
+<h2 class="text-[12px] font-medium text-slate-400 mb-1.5 px-1 tracking-wide">
+          備註與說明
+        </h2>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] p-3.5">
+<textarea class="w-full text-sm text-slate-800 placeholder-slate-400 border-none focus:ring-0 p-0 resize-none leading-relaxed" placeholder="例如：從 中國信託 轉入 / 每月生活備用金存提..." rows="2">從 中國信託 轉入生活備用金</textarea>
+</div>
+</section>
+<!-- END: Notes and Remarks Section -->
+<!-- BEGIN: Delete Action Section -->
+<section class="pt-3 pb-2" data-purpose="section-destructive-actions">
+<button class="w-full py-3.5 px-4 rounded-2xl bg-white border border-rose-200 text-rose-500 font-medium text-[15px] flex items-center justify-center space-x-2 shadow-xs hover:bg-rose-50/60 active:scale-[0.99] transition-all" type="button">
+<!-- Trash Icon -->
+<svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">刪除此筆交易紀錄</span>
+</button>
+</section>
+<!-- END: Delete Action Section -->
+</main>
+<!-- BEGIN: iOS Home Indicator -->
+<div class="fixed bottom-1 left-0 right-0 max-w-md mx-auto flex justify-center pointer-events-none" data-purpose="ios-home-bar">
+<div class="w-36 h-1 bg-slate-300/80 rounded-full"></div>
+</div>
+<!-- END: iOS Home Indicator -->
+</div>
+
+
+
+
+</body></html>

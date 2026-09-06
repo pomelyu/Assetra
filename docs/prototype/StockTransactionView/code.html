@@ -1,0 +1,269 @@
+<!DOCTYPE html><html lang="zh-TW" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>編輯股票交易 - EditStockTransactionView</title>
+<!-- Tailwind CSS v3 CDN with forms and container plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#10B981',
+              50: '#ECFDF5',
+              100: '#D1FAE5',
+              500: '#10B981',
+              600: '#059669',
+              700: '#047857',
+            },
+            ios: {
+              bg: '#F8FAFC',
+              card: '#FFFFFF',
+              border: '#F1F5F9',
+              subtext: '#64748B',
+              heading: '#0F172A',
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-scroll-and-resets">
+    /* Remove default form tap highlights and optimize mobile touch */
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    body {
+      background-color: #F8FAFC;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
+    }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 flex justify-center items-center min-h-screen p-0 sm:p-4 text-slate-800 antialiased font-sans select-none">
+<!-- BEGIN: PhoneContainer -->
+<!-- iPhone 390px layout container with iOS rounded corners -->
+<main class="w-full max-w-[390px] bg-[#F8FAFC] min-h-screen sm:min-h-[844px] sm:h-[844px] sm:rounded-[48px] sm:shadow-2xl flex flex-col relative overflow-hidden sm:border-[8px] sm:border-slate-800">
+<!-- BEGIN: iOSStatusBar -->
+<!-- Native iOS Status Bar with Time, Dynamic Notch area, Battery, Wifi -->
+<header class="w-full pt-3 px-7 pb-1 flex justify-between items-center text-black text-xs font-semibold select-none z-30 shrink-0" data-purpose="ios-status-bar">
+<span class="">9:41</span>
+<div class="flex items-center space-x-1.5">
+<!-- Cellular Signal Icon -->
+<svg class="w-4 h-3.5 fill-current" viewBox="0 0 17 12">
+<rect height="3" rx="0.5" width="2.5" x="0.5" y="8.5"></rect>
+<rect height="5.5" rx="0.5" width="2.5" x="4.5" y="6"></rect>
+<rect height="8" rx="0.5" width="2.5" x="8.5" y="3.5"></rect>
+<rect height="10.5" rx="0.5" width="2.5" x="12.5" y="1"></rect>
+</svg>
+<!-- WiFi Icon -->
+<svg class="w-4 h-3.5 fill-current" viewBox="0 0 16 12">
+<path d="M8 2.8C5.2 2.8 2.7 3.9 0.8 5.7L0 4.8C2.1 2.8 4.9 1.6 8 1.6C11.1 1.6 13.9 2.8 16 4.8L15.2 5.7C13.3 3.9 10.8 2.8 8 2.8ZM8 6.4C6.2 6.4 4.5 7.1 3.2 8.4L2.4 7.5C3.9 6 5.8 5.2 8 5.2C10.2 5.2 12.1 6 13.6 7.5L12.8 8.4C11.5 7.1 9.8 6.4 8 6.4ZM8 10C7.2 10 6.5 10.3 5.9 10.9L8 13.2L10.1 10.9C9.5 10.3 8.8 10 8 10Z"></path>
+</svg>
+<!-- Battery Icon -->
+<div class="w-6 h-3 border border-black rounded-sm p-0.5 flex items-center relative">
+<div class="h-full bg-black rounded-2xs w-full"></div>
+<div class="w-0.5 h-1.5 bg-black absolute -right-1 top-0.5 rounded-r-xs"></div>
+</div>
+</div>
+</header>
+<!-- END: iOSStatusBar -->
+<!-- BEGIN: TopNavigationBar -->
+<!-- Navigation header mirroring EditAccountView style with Cancel, Title, and Green Save -->
+<nav class="h-11 px-4 flex items-center justify-between shrink-0 bg-[#F8FAFC]/90 backdrop-blur border-b border-slate-200/50 z-20" data-purpose="navigation-header">
+<button aria-label="取消編輯" class="text-slate-500 hover:text-slate-700 text-base font-normal transition active:opacity-60 px-1 py-1" type="button">
+        取消
+      </button>
+<h1 class="text-base font-semibold text-slate-900 tracking-tight">編輯交易</h1>
+<button aria-label="儲存變更" class="text-brand-500 hover:text-brand-600 font-bold text-base transition active:opacity-60 px-1 py-1" type="button">
+        儲存
+      </button>
+</nav>
+<!-- END: TopNavigationBar -->
+<!-- BEGIN: ScrollableContent -->
+<!-- Scrollable Form Body Container -->
+<div class="flex-1 overflow-y-auto px-4 pt-3 pb-8 space-y-4" data-purpose="form-scroll-view">
+<!-- BEGIN: StockContextCard -->
+<!-- Concise stock reference chip showing ticker & current price reference -->
+<section class="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm flex items-center justify-between" data-purpose="stock-reference-banner">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-base border border-emerald-100/60">
+            2330
+          </div>
+<div>
+<div class="flex items-center space-x-1.5">
+<span class="font-bold text-slate-900 text-sm">台積電</span>
+<span class="text-xs text-slate-500 font-medium">2330 · 台股</span>
+</div>
+
+</div>
+</div>
+
+</section>
+<!-- END: StockContextCard -->
+<!-- BEGIN: TransactionCategorySection -->
+<!-- Section: 交易屬性 (Type & Date) -->
+<section class="space-y-1.5" data-purpose="transaction-type-section">
+<h2 class="text-xs font-semibold text-slate-400 px-1 uppercase tracking-wider">交易屬性</h2>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 overflow-hidden">
+<!-- Row 1: 交易類型 (Buy, Sell, Dividend) -->
+<div class="px-4 py-3.5 flex items-center justify-between">
+<label class="text-sm font-medium text-slate-800" for="transaction-type">交易類型</label>
+<div class="relative flex items-center">
+<!-- Visual Indicator Badge + Dropdown selection -->
+<span class="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
+<span class="text-xs">↘</span>
+<span class="">買入 (Buy)</span>
+<!-- Chevron Down -->
+<svg class="w-3.5 h-3.5 text-emerald-600 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+</span>
+<!-- Native invisible selector for accessible tap -->
+<select aria-label="選擇交易類型" class="absolute inset-0 opacity-0 w-full cursor-pointer" id="transaction-type">
+<option selected="" value="buy">買入 (Buy)</option>
+<option value="sell">賣出 (Sell)</option>
+<option value="dividend">現金股利 (Dividend)</option>
+</select>
+</div>
+</div>
+<!-- Row 2: 交易日期 -->
+<div class="px-4 py-3 flex items-center justify-between">
+<label class="text-sm font-medium text-slate-800" for="transaction-date">交易日期</label>
+<div class="flex items-center space-x-1.5">
+<input class="border-0 p-0 text-sm font-medium text-slate-700 focus:ring-0 text-right bg-transparent cursor-pointer" id="transaction-date" type="date" value="2024-06-18">
+<svg class="w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+</div>
+</section>
+<!-- END: TransactionCategorySection -->
+<!-- BEGIN: AccountLinkingSection -->
+<!-- Section: 帳戶關聯 (Brokerage & Funding Source) -->
+<section class="space-y-1.5" data-purpose="account-linking-section">
+<h2 class="text-xs font-semibold text-slate-400 px-1 uppercase tracking-wider">帳戶關聯</h2>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 overflow-hidden">
+<!-- Row 1: 投資證券帳戶 -->
+<div class="px-4 py-3.5 flex items-center justify-between">
+<div>
+<p class="text-sm font-medium text-slate-800">投資帳戶</p>
+
+</div>
+<div class="flex items-center space-x-1 cursor-pointer">
+<span class="text-sm font-medium text-slate-700">證券戶1 (中國信託)</span>
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Row 2: 資金來源交割帳戶 -->
+<div class="px-4 py-3.5 flex items-center justify-between">
+<div>
+<p class="text-sm font-medium text-slate-800">扣款 / 交割帳戶</p>
+
+</div>
+<div class="flex items-center space-x-1 cursor-pointer">
+<span class="text-sm font-medium text-slate-700">中國信託 · 台幣活存</span>
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+</div>
+</section>
+<!-- END: AccountLinkingSection -->
+<!-- BEGIN: CalculationAndFinancialsSection -->
+<!-- Section: 財務數值與結算明細 -->
+<section class="space-y-1.5" data-purpose="financial-inputs-section">
+<h2 class="text-xs font-semibold text-slate-400 px-1 uppercase tracking-wider">財務數值與計算</h2>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 overflow-hidden">
+<!-- 每股成交價格 -->
+<div class="px-4 py-3 flex items-center justify-between">
+<label class="text-sm font-medium text-slate-800" for="price-per-share">每股價格 (Price)</label>
+<div class="flex items-center space-x-1">
+<span class="text-xs font-semibold text-slate-400">NT$</span>
+<input class="w-28 text-right font-semibold text-slate-900 border-0 p-0 text-sm focus:ring-0" id="price-per-share" inputmode="decimal" type="text" value="960.00">
+</div>
+</div>
+<!-- 買入成交股數 -->
+<div class="px-4 py-3 flex items-center justify-between">
+<div>
+<label class="text-sm font-medium text-slate-800" for="share-amount">交易股數 (Shares)</label>
+
+</div>
+<div class="flex items-center space-x-1">
+<input class="w-24 text-right font-semibold text-slate-900 border-0 p-0 text-sm focus:ring-0" id="share-amount" inputmode="numeric" type="text" value="1,000">
+<span class="text-xs text-slate-500 font-medium">股</span>
+</div>
+</div>
+<!-- 手續費與稅金 -->
+<div class="px-4 py-3 flex items-center justify-between">
+<div class="flex items-center space-x-1">
+<label class="text-sm font-medium text-slate-800" for="fee-tax">手續費與稅</label>
+<button aria-label="費率說明" class="text-slate-300 hover:text-slate-500" type="button">
+
+</button>
+</div>
+<div class="flex items-center space-x-1">
+<span class="text-xs font-semibold text-slate-400">NT$</span>
+<input class="w-20 text-right font-semibold text-slate-900 border-0 p-0 text-sm focus:ring-0" id="fee-tax" inputmode="numeric" type="text" value="1,368">
+</div>
+</div>
+<!-- 結算總金額 (Auto Calculated Card) -->
+<div class="px-4 py-3.5 bg-slate-50/70 flex items-center justify-between">
+<div>
+<p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">交割結算總支出</p>
+<p class="text-[11px] text-slate-400">股數 × 單價 + 交易手續費</p>
+</div>
+<div class="text-right">
+<span class="text-lg font-extrabold tracking-tight text-slate-900 block font-mono">
+                NT$ 961,368
+              </span>
+
+</div>
+</div>
+</div>
+</section>
+<!-- END: CalculationAndFinancialsSection -->
+<!-- BEGIN: NotesSection -->
+<!-- Section: 交易備註 -->
+<section class="space-y-1.5" data-purpose="notes-section">
+
+
+</section>
+<!-- END: NotesSection -->
+<!-- BEGIN: DangerActionSection -->
+<!-- Delete Record Action Button for Edit Mode -->
+<div class="pt-3 pb-4" data-purpose="delete-action">
+<button class="w-full py-3 px-4 rounded-2xl bg-white border border-red-100 text-rose-600 font-semibold text-sm hover:bg-rose-50 transition active:scale-[0.99] flex items-center justify-center space-x-1.5 shadow-sm" type="button">
+<svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">刪除此筆交易紀錄</span>
+</button>
+</div>
+<!-- END: DangerActionSection -->
+</div>
+<!-- END: ScrollableContent -->
+<!-- BEGIN: iOSHomeIndicator -->
+<!-- Native iOS Bottom Home Grabber Bar -->
+<footer class="w-full h-7 shrink-0 flex items-center justify-center pb-2 bg-[#F8FAFC]" data-purpose="ios-home-indicator">
+<div class="w-32 h-1 bg-slate-300 rounded-full"></div>
+</footer>
+<!-- END: iOSHomeIndicator -->
+</main>
+<!-- END: PhoneContainer -->
+
+
+</body></html>

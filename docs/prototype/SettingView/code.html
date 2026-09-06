@@ -1,0 +1,313 @@
+<!DOCTYPE html><html lang="zh-TW"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>設定 - 資產管理</title>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            appGreen: '#0fa968',
+            appBg: '#f8fafc',
+            subText: '#94a3b8',
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"PingFang TC"', '"Helvetica Neue"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-scroll-and-touch">
+    /* 移除 iOS 點擊高亮並保持流暢滾動 */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-900 antialiased flex justify-center items-center min-h-screen p-0 sm:p-4">
+<!-- BEGIN: PhoneFrame -->
+<!-- 模擬 iOS 設備視窗外框 -->
+<main class="w-full max-w-[393px] h-[852px] bg-[#f8fafc] flex flex-col relative overflow-hidden shadow-2xl sm:rounded-[48px] border-0 sm:border-[8px] sm:border-slate-800" data-purpose="mobile-viewport">
+<!-- BEGIN: StatusBar -->
+<header class="pt-3 px-7 flex justify-between items-center z-20 shrink-0 select-none" data-purpose="ios-status-bar">
+<!-- 狀態列時間 -->
+<span class="text-[15px] font-semibold tracking-tight text-slate-900">9:41</span>
+<!-- 右側信號、WiFi、電池圖示 -->
+<div class="flex items-center space-x-2 text-slate-900">
+<!-- 行動網路訊號 -->
+<svg class="w-4 h-3.5 fill-current" viewBox="0 0 17 12">
+<rect height="4" rx="0.8" width="3" x="0.5" y="8"></rect>
+<rect height="6.5" rx="0.8" width="3" x="4.8" y="5.5"></rect>
+<rect height="9" rx="0.8" width="3" x="9.2" y="3"></rect>
+<rect height="11.5" rx="0.8" width="3" x="13.5" y="0.5"></rect>
+</svg>
+<!-- Wi-Fi 圖示 -->
+<svg class="w-4 h-3.5 fill-current" viewBox="0 0 24 24">
+<path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4zm0 3.5c3.5 0 6.7 1.34 9.1 3.55L12 19.3 2.9 11.05C5.3 8.84 8.5 7.5 12 7.5z"></path>
+</svg>
+<!-- 電池圖示 -->
+<div class="flex items-center">
+<div class="w-5 h-2.5 border-[1.5px] border-slate-900 rounded-[3px] p-[1px] flex items-center">
+<div class="w-full h-full bg-slate-900 rounded-[1px]"></div>
+</div>
+<div class="w-0.5 h-1 bg-slate-900 rounded-r-[1px] -ml-[0.5px]"></div>
+</div>
+</div>
+</header>
+<!-- END: StatusBar -->
+<!-- BEGIN: ScrollableContent -->
+<div class="flex-1 overflow-y-auto no-scrollbar px-4 pb-24 pt-2" data-purpose="settings-scroll-area">
+<!-- 頂部大標題 -->
+<section class="px-1 pt-3 pb-4" data-purpose="page-title">
+<h1 class="text-[28px] font-bold tracking-tight text-slate-900">設定</h1>
+</section>
+<!-- 區塊 1: 帳號管理 -->
+<section class="mb-5" data-purpose="account-group">
+<h2 class="text-xs font-medium text-slate-500 mb-2 px-1">帳號管理</h2>
+<div class="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] border border-slate-100 overflow-hidden">
+<button class="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<!-- 人像圖標 -->
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-700 bg-slate-100">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">帳號設定</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">管理證券 / 銀行 / 券商帳號</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</section>
+<!-- 區塊 2: 報表分類設定 -->
+<section class="mb-5" data-purpose="category-group">
+<h2 class="text-xs font-medium text-slate-500 mb-2 px-1">報表分類設定</h2>
+<div class="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] border border-slate-100 overflow-hidden">
+<button class="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<!-- 資產分類圖標 -->
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-amber-500 bg-amber-50">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">資產分類</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">管理報表中的資產分類群組</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</section>
+<!-- 區塊 3: 資料管理 -->
+<section class="mb-5" data-purpose="data-group">
+<h2 class="text-xs font-medium text-slate-500 mb-2 px-1">資料管理</h2>
+<div class="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] border border-slate-100 overflow-hidden divide-y divide-slate-100">
+<!-- 匯入資料 -->
+<button class="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-emerald-600 bg-emerald-50">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M19 14l-7 7m0 0l-7-7m7 7V3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">匯入資料</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">從檔案匯入資產資料</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- 匯出資料 -->
+<button class="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-blue-500 bg-blue-50">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M5 10l7-7m0 0l7 7m-7-7v18" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">匯出資料</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">匯出所有資料備份</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</section>
+<!-- 區塊 4: 應用設定 -->
+<section class="mb-5" data-purpose="app-settings-group">
+<h2 class="text-xs font-medium text-slate-500 mb-2 px-1">應用設定</h2>
+<div class="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] border border-slate-100 overflow-hidden divide-y divide-slate-100">
+<!-- 外觀 -->
+<button class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 bg-slate-100">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">外觀</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">淺色 / 深色模式</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- 語言 -->
+<button class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-sky-500 bg-sky-50">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="9"></circle>
+<path d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9m0-18a15.3 15.3 0 00-4 9 15.3 15.3 0 004 9" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">語言</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">繁體中文</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- 數據更新 -->
+<button class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 bg-slate-100">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">數據更新</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">設定股價更新方式與頻率</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- 安全與備份 -->
+<button class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-emerald-500 bg-emerald-50">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">安全與備份</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">Face ID / iCloud 備份</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</section>
+<!-- 區塊 5: 關於 -->
+<section class="mb-4" data-purpose="about-group">
+<h2 class="text-xs font-medium text-slate-500 mb-2 px-1">關於</h2>
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden divide-y divide-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+<!-- 版本 -->
+<button class="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-sky-500 bg-sky-50">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">版本</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">1.0.0</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- 回饋 -->
+<button class="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 active:bg-slate-100 transition duration-150">
+<div class="flex items-center space-x-3.5">
+<div class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 bg-slate-100">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<p class="text-[15px] font-semibold text-slate-800 leading-tight">回饋</p>
+<p class="text-xs text-slate-400 mt-1 leading-none">提供意見或建議</p>
+</div>
+</div>
+<svg class="w-4 h-4 text-slate-300 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</section>
+</div>
+<!-- END: ScrollableContent -->
+<!-- BEGIN: BottomNavigation -->
+<!-- 底部 Tab 列，固定於手機下方 -->
+<nav class="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 pt-2 pb-6 px-6 flex justify-between items-center z-30" data-purpose="bottom-tab-bar">
+<!-- 股市分頁 -->
+<a class="flex flex-col items-center flex-1 text-slate-400 hover:text-slate-600" href="#">
+<svg class="w-6 h-6 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-[11px] font-medium mt-1">股市</span>
+</a>
+<!-- 銀行分頁 -->
+<a class="flex flex-col items-center flex-1 text-slate-400 hover:text-slate-600" href="#">
+<svg class="w-6 h-6 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-[11px] font-medium mt-1">銀行</span>
+</a>
+<!-- 報表分頁 -->
+<a class="flex flex-col items-center flex-1 text-slate-400 hover:text-slate-600" href="#">
+<svg class="w-6 h-6 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-[11px] font-medium mt-1">報表</span>
+</a>
+<!-- 設定分頁 (選中高亮 - 綠色) -->
+<a class="flex flex-col items-center flex-1 text-emerald-600" href="#">
+<svg class="w-6 h-6 fill-emerald-600" viewBox="0 0 24 24">
+<path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.63c-.04.34-.07.67-.07 1 0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z"></path>
+</svg>
+<span class="text-[11px] font-semibold mt-1">設定</span>
+</a>
+</nav>
+<!-- END: BottomNavigation -->
+</main>
+<!-- END: PhoneFrame -->
+</body></html>

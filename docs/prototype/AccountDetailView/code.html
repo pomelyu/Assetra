@@ -1,0 +1,269 @@
+<!DOCTYPE html><html lang="zh-TW" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>帳戶明細 - 台幣活存</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+TC:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+    body {
+      font-family: 'Noto Sans TC', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #F8FAFC;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .num-font {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-feature-settings: "tnum" 1;
+    }
+    /* Hide scrollbars */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 flex justify-center min-h-screen">
+<div class="w-full max-w-[390px] min-h-screen flex flex-col relative pb-28 select-none bg-[#F8FAFC]">
+<!-- Top Status Bar (iOS Native Style) -->
+<div class="px-7 pt-3 pb-2 flex justify-between items-center text-xs font-semibold text-slate-800 tracking-tight">
+<span class="num-font text-[14px]">9:41</span>
+<div class="flex items-center space-x-1.5 text-slate-800">
+<!-- Signal / Cellular -->
+<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+<path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9zm0 2c3.87 0 7 3.13 7 7 0 1.62-.56 3.11-1.51 4.31L12 19.78l-5.49-3.47C5.56 15.11 5 13.62 5 12c0-3.87 3.13-7 7-7z"></path>
+</svg>
+<!-- Wifi -->
+<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+<path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4zm0 3.5c3.55 0 6.77 1.38 9.17 3.63L12 18.25 2.83 11.13C5.23 8.88 8.45 7.5 12 7.5z"></path>
+</svg>
+<!-- Battery -->
+<div class="w-5 h-2.5 border border-slate-700 rounded-sm p-0.5 flex items-center">
+<div class="h-full w-full bg-slate-800 rounded-2xs"></div>
+</div>
+</div>
+</div>
+<!-- Top Navigation Header -->
+<div class="px-4 py-2 flex items-center justify-between">
+<button class="flex items-center space-x-1 text-slate-800 font-medium active:opacity-60 transition-opacity">
+<svg class="w-5 h-5 stroke-2 stroke-slate-700 fill-none" viewBox="0 0 24 24">
+<path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-base font-medium">資產</span>
+</button>
+<!-- Center Title: Account & Institution -->
+<div class="text-center">
+<h1 class="text-lg font-bold text-slate-900 tracking-tight leading-none">台幣活存</h1>
+
+</div>
+<!-- Action Button / Filter Icon -->
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 active:bg-slate-200 transition-colors">
+<svg class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931zm0 0L19.5 7.125"></path></svg>
+</button>
+</div>
+<!-- Account Overview Card (Mirrors StockDetail layout) -->
+<div class="mx-4 mt-2 p-5 bg-white rounded-3xl shadow-sm border border-slate-100">
+<div class="flex justify-between items-start mb-3">
+<!-- Sub-tag info badge -->
+<div class="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+<span class="">一般帳戶&nbsp;</span>
+</div>
+<!-- Total Interest/Net Gain -->
+<div class="flex items-center space-x-3 text-right"><div class="text-left"><span class="text-[11px] text-slate-400 block">帳戶成本&nbsp;</span><span class="num-font text-xs font-semibold text-slate-600">NT$ 500,000</span></div><div class="text-right"><span class="text-[11px] text-slate-400 block">累計利息/收益</span><span class="num-font text-xs font-semibold text-emerald-600">+NT$ 320</span></div></div>
+</div>
+<!-- Main Balance -->
+<div class="text-[13px] text-slate-400 font-medium">帳戶現值</div>
+<div class="flex items-baseline justify-between mt-1">
+<div class="text-3xl font-extrabold text-slate-900 num-font tracking-tight">
+<span class="text-xl mr-1 font-bold text-slate-800">NT$</span>500,320
+        </div>
+<div class="flex items-center space-x-1 px-2.5 py-1 bg-emerald-50 rounded-full text-emerald-600 text-xs font-semibold num-font">
+<svg class="w-3 h-3 stroke-[2.5] stroke-emerald-600 fill-none" viewBox="0 0 24 24">
+<path d="M5 10l7-7m0 0l7 7m-7-7v18" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">+320 (+0.1%)</span>
+</div>
+</div>
+<!-- Transaction Type Segment Filter Chips (Horizontal Scroll) -->
+<div class="mt-4 pt-3.5 border-t border-slate-100">
+<div class="text-[11px] text-slate-400 font-medium mb-2">交易類型篩選</div>
+<div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar pb-0.5">
+<button class="px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-600 text-white shadow-xs whitespace-nowrap">全部</button>
+<button class="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap">收入</button>
+<button class="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap">支出</button>
+<button class="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap">轉入</button>
+<button class="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap">轉出</button>
+<button class="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap">買入</button>
+<button class="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap">投資出</button>
+</div>
+</div>
+</div>
+<!-- Transaction Quick Filter Bar (All / Inflow / Outflow) -->
+<div class="mx-4 mt-3 grid grid-cols-3 bg-slate-200/60 p-1 rounded-xl text-center text-xs font-medium text-slate-600">
+<button class="py-1.5 bg-white text-slate-900 rounded-lg shadow-xs font-semibold">全部 (All)</button>
+<button class="py-1.5 text-slate-600 hover:text-slate-900">入帳 (+)</button>
+<button class="py-1.5 text-slate-600 hover:text-slate-900">出帳 (-)</button>
+</div>
+<!-- Transactions List Grouped by Year -->
+<div class="mx-4 mt-4">
+<!-- Year Header with Count -->
+<div class="flex justify-between items-center px-1 mb-2">
+<span class="text-sm font-bold text-slate-800">2024 年</span>
+<span class="text-xs text-slate-400">共 6 筆明細</span>
+</div>
+<!-- Transaction Cards List Container -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-100">
+<!-- 1. 收入 (Income / Salary / Bonus) -->
+<div class="px-3.5 py-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors">
+<div class="flex items-center space-x-2.5 min-w-0">
+<!-- Icon: 收入 (翡翠綠錢幣/錢袋下落入帳或加號) -->
+<div class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 stroke-[2.2] stroke-emerald-600 fill-none" viewBox="0 0 24 24"><path d="M5 12h14m-6-6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+<!-- Date -->
+<span class="text-xs font-medium text-slate-400 num-font flex-shrink-0">12.05</span>
+<!-- Tag: 收入 -->
+
+<!-- Detail / Source -->
+<div class="truncate text-xs font-medium text-slate-700">
+              薪資獎金入帳
+            </div>
+</div>
+<!-- Amount & Arrow -->
+<div class="flex items-center space-x-1 flex-shrink-0 pl-2">
+<span class="text-xs font-bold text-emerald-600 num-font">+ 85,000</span>
+<svg class="w-3.5 h-3.5 text-slate-300 stroke-2 fill-none" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- 2. 支出 (Expense) -->
+<div class="px-3.5 py-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors">
+<div class="flex items-center space-x-2.5 min-w-0">
+<!-- Icon: 支出 (玫瑰紅 購物/消費/減號) -->
+<div class="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 stroke-[2.2] stroke-rose-500 fill-none" viewBox="0 0 24 24"><path d="M19 12H5m6 6l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+<!-- Date -->
+<span class="text-xs font-medium text-slate-400 num-font flex-shrink-0">11.20</span>
+<!-- Tag: 支出 -->
+
+<!-- Detail / Source -->
+<div class="truncate text-xs font-medium text-slate-700">
+              房租與生活水電
+            </div>
+</div>
+<!-- Amount & Arrow -->
+<div class="flex items-center space-x-1 flex-shrink-0 pl-2">
+<span class="text-xs font-bold text-slate-900 num-font">- 28,500</span>
+<svg class="w-3.5 h-3.5 text-slate-300 stroke-2 fill-none" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- 3. 轉帳入 (Transfer In) -->
+<div class="px-3.5 py-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors">
+<div class="flex items-center space-x-2.5 min-w-0">
+<!-- Icon: 轉帳入 (天藍色 向左進帳箭頭) -->
+<div class="w-8 h-8 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 stroke-[2.2] stroke-sky-600 fill-none" viewBox="0 0 24 24"><path d="M6 6l12 12m0 0H9.5m8.5 0V9.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+<!-- Date -->
+<span class="text-xs font-medium text-slate-400 num-font flex-shrink-0">10.15</span>
+<!-- Tag: 轉帳入 -->
+
+<!-- Detail / Counterparty -->
+<div class="truncate text-xs font-medium text-slate-700">
+              從 中國信託 轉入
+            </div>
+</div>
+<!-- Amount & Arrow -->
+<div class="flex items-center space-x-1 flex-shrink-0 pl-2">
+<span class="text-xs font-bold text-emerald-600 num-font">+ 50,000</span>
+<svg class="w-3.5 h-3.5 text-slate-300 stroke-2 fill-none" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- 4. 轉帳出 (Transfer Out) -->
+<div class="px-3.5 py-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors">
+<div class="flex items-center space-x-2.5 min-w-0">
+<!-- Icon: 轉帳出 (琥珀橙 向外出帳箭頭) -->
+<div class="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 stroke-[2.2] stroke-amber-600 fill-none" viewBox="0 0 24 24"><path d="M18 18L6 6m0 0h8.5M6 6v8.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+<!-- Date -->
+<span class="text-xs font-medium text-slate-400 num-font flex-shrink-0">08.28</span>
+<!-- Tag: 轉帳出 -->
+
+<!-- Detail / Counterparty -->
+<div class="truncate text-xs font-medium text-slate-700">
+              轉出至 國泰世華
+            </div>
+</div>
+<!-- Amount & Arrow -->
+<div class="flex items-center space-x-1 flex-shrink-0 pl-2">
+<span class="text-xs font-bold text-slate-900 num-font">- 20,000</span>
+<svg class="w-3.5 h-3.5 text-slate-300 stroke-2 fill-none" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- 5. 投資出 (Investment Out / Capital Outlay to Broker) -->
+<div class="px-3.5 py-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors">
+<div class="flex items-center space-x-2.5 min-w-0">
+<!-- Icon: 投資出 (紫色 向證券戶扣款交割 買股/申購) -->
+<div class="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 stroke-[2.2] stroke-purple-600 fill-none" viewBox="0 0 24 24"><path d="M18 18L6 6m0 0h8.5M6 6v8.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+<!-- Date -->
+<span class="text-xs font-medium text-slate-400 num-font flex-shrink-0">06.18</span>
+<!-- Tag: 投資出 -->
+
+<!-- Detail: Target / Broker -->
+<div class="truncate text-xs font-medium text-slate-700">買入台積電</div>
+</div>
+<!-- Amount & Arrow -->
+<div class="flex items-center space-x-1 flex-shrink-0 pl-2">
+<span class="text-xs font-bold text-slate-900 num-font">- 120,000</span>
+<svg class="w-3.5 h-3.5 text-slate-300 stroke-2 fill-none" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+<!-- 6. 投資入 (Investment In / Dividend / Redemption) -->
+<div class="px-3.5 py-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors">
+<div class="flex items-center space-x-2.5 min-w-0">
+<!-- Icon: 投資入 (靛青色/綠金 獲利匯回/賣股回款/配息入帳) -->
+<div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4 stroke-[2.2] stroke-indigo-600 fill-none" viewBox="0 0 24 24"><path d="M6 6l12 12m0 0H9.5m8.5 0V9.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+<!-- Date -->
+<span class="text-xs font-medium text-slate-400 num-font flex-shrink-0">03.15</span>
+<!-- Tag: 投資入 -->
+
+<!-- Detail: Target / Return -->
+<div class="truncate text-xs font-medium text-slate-700">
+              賣出中華電信</div>
+</div>
+<!-- Amount & Arrow -->
+<div class="flex items-center space-x-1 flex-shrink-0 pl-2">
+<span class="text-xs font-bold text-emerald-600 num-font">+ 65,000</span>
+<svg class="w-3.5 h-3.5 text-slate-300 stroke-2 fill-none" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+</div>
+</div>
+<!-- Floating Action Button (FAB) anchored to mobile frame -->
+<div class="sticky bottom-6 flex justify-end px-5 z-30 pointer-events-none mt-auto">
+<button class="w-14 h-14 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40 active:scale-95 hover:bg-emerald-600 transition-all pointer-events-auto">
+<svg class="w-7 h-7 stroke-[2.5] stroke-white fill-none" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+<!-- iOS Home Indicator anchored to frame -->
+<div class="absolute bottom-1 left-0 right-0 flex justify-center pointer-events-none">
+<div class="w-32 h-1 bg-slate-300 rounded-full"></div>
+</div>
+</div>
+
+
+
+
+
+</body></html>

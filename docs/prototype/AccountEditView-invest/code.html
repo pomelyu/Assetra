@@ -1,0 +1,281 @@
+<!DOCTYPE html><html lang="zh-TW" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>編輯帳戶 - Portfolio Master</title>
+<!-- Tailwind CSS CDN with forms plugin -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              DEFAULT: '#10B981',
+              50: '#ECFDF5',
+              100: '#D1FAE5',
+              500: '#10B981',
+              600: '#059669',
+              700: '#047857',
+            },
+            iosBg: '#F8FAFC',
+            iosCard: '#FFFFFF',
+            iosBorder: '#F1F5F9',
+          },
+          fontFamily: {
+            sans: [
+              '-apple-system',
+              'BlinkMacSystemFont',
+              '"SF Pro Text"',
+              '"SF Pro Display"',
+              '"PingFang TC"',
+              '"Helvetica Neue"',
+              'sans-serif'
+            ],
+          }
+        }
+      }
+    };
+  </script>
+<!-- Custom Styles for iOS specific form interactions and safe areas -->
+<style data-purpose="custom-ios-styling">
+    /* Remove default appearance for iOS numeric spinners */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    /* iOS smooth tap highlight */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Custom toggle switch switch animation */
+    .toggle-checkbox:checked {
+      right: 2px;
+      left: auto;
+      border-color: #10B981;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #10B981;
+    }
+  </style>
+</head>
+<body class="bg-slate-200 min-h-screen flex items-center justify-center font-sans antialiased text-slate-800 p-0 sm:p-6 select-none">
+<!-- BEGIN: PhoneFrame -->
+<div class="w-full max-w-[412px] h-[890px] bg-iosBg flex flex-col relative overflow-hidden sm:rounded-[48px] sm:shadow-2xl sm:border-[8px] sm:border-slate-800" data-purpose="ios-device-container">
+<!-- Dynamic Island / Ear speaker simulated element -->
+<div class="hidden sm:block absolute top-2.5 left-1/2 -translate-x-1/2 w-28 h-7 bg-black rounded-full z-50 pointer-events-none"></div>
+<!-- BEGIN: StatusBar -->
+<header class="w-full pt-3 px-7 pb-1 flex justify-between items-center z-40 bg-iosBg" data-purpose="status-bar">
+<!-- Time Display -->
+<span class="text-[15px] font-semibold tracking-tight text-slate-900">9:41</span>
+<!-- System Icons -->
+<div class="flex items-center space-x-1.5 text-slate-900">
+<!-- Cellular Signal Icon -->
+<svg class="w-4 h-3.5 fill-current" viewBox="0 0 16 12">
+<rect height="4" rx="0.5" width="2.5" x="0" y="8"></rect>
+<rect height="6.5" rx="0.5" width="2.5" x="4" y="5.5"></rect>
+<rect height="9" rx="0.5" width="2.5" x="8" y="3"></rect>
+<rect height="11.5" rx="0.5" width="2.5" x="12" y="0.5"></rect>
+</svg>
+<!-- Wifi Icon -->
+<svg class="w-4 h-3.5 fill-current" viewBox="0 0 16 12">
+<path d="M8 2.5a10.84 10.84 0 0 1 6.3 2.05.5.5 0 0 0 .64-.06l.8-.8a.5.5 0 0 0-.04-.73C13.56 1.25 10.9 0.5 8 0.5c-2.9 0-5.56.75-7.7 2.46a.5.5 0 0 0-.04.73l.8.8a.5.5 0 0 0 .64.06A10.84 10.84 0 0 1 8 2.5zm0 4c-1.8 0-3.46.54-4.85 1.48a.5.5 0 0 0-.06.7l.8.8c.2.2.5.22.74.07A6.47 6.47 0 0 1 8 8.5c1.23 0 2.37.36 3.37 1.05.23.15.53.13.74-.07l.8-.8a.5.5 0 0 0-.06-.7A8.15 8.15 0 0 0 8 6.5zm0 4c-.75 0-1.4.28-1.92.74a.48.48 0 0 0-.04.68l1.7 1.7c.14.14.38.14.52 0l1.7-1.7a.48.48 0 0 0-.04-.68A2.88 2.88 0 0 0 8 10.5z"></path>
+</svg>
+<!-- Battery Icon -->
+<div class="flex items-center">
+<div class="w-5 h-[11px] border border-slate-900 rounded-[3px] p-[1px] flex items-center">
+<div class="h-full w-full bg-slate-900 rounded-[1.5px]"></div>
+</div>
+<div class="w-[1.5px] h-1 bg-slate-900 rounded-r-sm -ml-[0.5px]"></div>
+</div>
+</div>
+</header>
+<!-- END: StatusBar -->
+<!-- BEGIN: NavigationBar -->
+<nav class="h-11 px-4 flex items-center justify-between bg-iosBg z-30 shrink-0 border-b border-slate-200/50" data-purpose="top-navigation">
+<!-- Cancel Button -->
+<button class="text-[16px] text-slate-500 active:opacity-60 transition duration-150 py-1 font-normal" type="button">
+        取消
+      </button>
+<!-- Center Title -->
+<h1 class="text-[17px] font-bold text-slate-900 tracking-tight">
+        編輯帳戶
+      </h1>
+<!-- Save Button -->
+<button class="text-[16px] font-bold text-primary active:opacity-60 transition duration-150 py-1" type="button">
+        儲存
+      </button>
+</nav>
+<!-- END: NavigationBar -->
+<!-- BEGIN: FormScrollArea -->
+<main class="flex-1 overflow-y-auto px-4 py-4 space-y-5" data-purpose="form-content">
+<!-- BEGIN: BasicInfoSection -->
+<section data-purpose="basic-information-card">
+<h2 class="text-xs font-medium text-slate-400 px-3 pb-1.5 uppercase tracking-wider">
+          基本資訊
+        </h2>
+<div class="bg-iosCard rounded-2xl border border-slate-100/90 shadow-sm overflow-hidden divide-y divide-slate-100">
+<!-- 帳戶名稱 -->
+<div class="px-4 py-3.5 flex items-center justify-between">
+<label class="w-24 text-sm font-medium text-slate-600" for="account-name">帳戶名稱</label>
+<input class="flex-1 text-right text-sm font-semibold text-slate-800 placeholder-slate-400 bg-transparent border-0 p-0 focus:ring-0 text-ellipsis" id="account-name" placeholder="證券戶1" type="text" value="台幣活存">
+</div>
+<!-- 帳戶分類 -->
+<div class="px-4 py-3.5 flex items-center justify-between relative cursor-pointer active:bg-slate-50">
+<label class="w-24 text-sm font-medium text-slate-600" for="account-category">帳戶分類</label>
+<div class="flex items-center space-x-1.5 flex-1 justify-end">
+<select class="appearance-none bg-transparent border-0 py-0 pl-2 pr-6 text-sm font-semibold text-slate-800 text-right focus:ring-0 cursor-pointer" id="account-category">
+<option selected="" value="deposit">存款</option>
+<option value="stock">股票</option>
+<option value="bond">債券</option>
+<option value="gold">黃金</option>
+<option value="crypto">加密貨幣</option>
+<option value="other">其他</option>
+</select>
+<!-- iOS chevron arrow -->
+<svg class="w-4 h-4 text-slate-400 pointer-events-none absolute right-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<div class="px-4 py-3.5 flex items-center justify-between relative cursor-pointer active:bg-slate-50"><label class="w-24 text-sm font-medium text-slate-600" for="account-currency">帳戶幣種</label><div class="flex items-center space-x-1.5 flex-1 justify-end"><select class="appearance-none bg-transparent border-0 py-0 pl-2 pr-6 text-sm font-semibold text-slate-800 text-right focus:ring-0 cursor-pointer" id="account-currency"><option value="TWD" selected="">TWD (NT$)</option><option value="USD">USD ($)</option><option value="JPY">JPY (¥)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option><option value="CNY">CNY (¥)</option></select><svg class="w-4 h-4 text-slate-400 pointer-events-none absolute right-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div></div></div>
+</section>
+<!-- END: BasicInfoSection -->
+<!-- BEGIN: InvestmentAttributeSection -->
+<section data-purpose="investment-attributes-card"><h2 class="text-xs font-medium text-slate-400 px-3 pb-1.5 uppercase tracking-wider">
+  投資屬性
+</h2>
+<div class="bg-iosCard rounded-2xl border border-slate-100/90 shadow-sm divide-y divide-slate-100 overflow-hidden">
+  <div class="px-4 py-3.5 flex items-center justify-between">
+    <div class="pr-3">
+      <div class="text-sm font-medium text-slate-800">投資帳戶</div>
+      
+    </div>
+    <div class="w-12 h-7 bg-emerald-500 rounded-full relative p-0.5 cursor-pointer shrink-0 transition duration-150">
+      <div class="w-6 h-6 bg-white rounded-full shadow-sm absolute top-[2px] right-[2px]"></div>
+    </div>
+  </div>
+  <div class="px-4 py-3.5 flex items-center justify-between relative cursor-pointer active:bg-slate-50">
+    <div class="pr-2">
+      <label class="text-sm font-medium text-slate-800 block" for="funding-source-account">資金來源帳戶</label>
+      
+    </div>
+    <div class="flex items-center space-x-1.5 flex-1 justify-end">
+      <select class="appearance-none bg-transparent border-0 py-0 pl-2 pr-6 text-sm font-semibold text-slate-800 text-right focus:ring-0 cursor-pointer" id="funding-source-account">
+        <option selected="" value="ctbc">中國信託 · 台幣存款</option>
+        <option value="taishin">台新銀行 · 台幣活存</option>
+        <option value="esun">玉山銀行 · 數位帳戶</option>
+        <option value="cathay">國泰世華 · 活期儲蓄</option>
+      </select>
+      <svg class="w-4 h-4 text-slate-400 pointer-events-none absolute right-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+      </svg>
+    </div>
+  </div>
+</div></section>
+<!-- END: InvestmentAttributeSection -->
+<!-- BEGIN: FinancialValuesSection -->
+<section data-purpose="financial-values-card">
+<h2 class="text-xs font-medium text-slate-400 px-3 pb-1.5 uppercase tracking-wider">
+          財務數值與幣別
+        </h2>
+<div class="bg-iosCard rounded-2xl border border-slate-100/90 shadow-sm p-4 space-y-4">
+<!-- 帳戶成本區塊 -->
+<div class="space-y-1">
+<label class="text-xs font-medium text-slate-500 block">初始成本</label>
+<div class="flex items-center justify-between bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+<!-- Numeric input -->
+<input class="w-full text-lg font-bold text-slate-900 bg-transparent border-0 p-0 focus:ring-0" inputmode="decimal" placeholder="0.00" type="text" value="500,000">
+<!-- Currency selector badge -->
+<div class="flex items-center space-x-1 pl-2 border-l border-slate-200 shrink-0">
+<span class="text-xs font-semibold text-slate-700">TWD (NT$)</span>
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Auxiliary / Currency conversion hint -->
+<div class="flex items-center space-x-1 px-1 pt-0.5">
+
+
+</div>
+</div>
+<div class="border-t border-slate-100"></div>
+<!-- 帳戶現值區塊 -->
+<div class="space-y-1">
+<label class="text-xs font-medium text-slate-500 block">初始價值</label>
+<div class="flex items-center justify-between bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+<!-- Numeric input -->
+<input class="w-full text-lg font-bold text-slate-900 bg-transparent border-0 p-0 focus:ring-0" inputmode="decimal" placeholder="0.00" type="text" value="500,320">
+<!-- Currency selector badge -->
+<div class="flex items-center space-x-1 pl-2 border-l border-slate-200 shrink-0">
+<span class="text-xs font-semibold text-slate-700">TWD (NT$)</span>
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Auxiliary / Unrealized profit display -->
+<div class="flex flex-wrap items-center justify-between px-1 pt-0.5 text-[11px]">
+
+<div class="flex items-center space-x-1 text-primary font-semibold">
+
+
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: FinancialValuesSection -->
+<!-- BEGIN: NotesAndDetailsSection -->
+<section data-purpose="notes-and-institution-card">
+<h2 class="text-xs font-medium text-slate-400 px-3 pb-1.5 uppercase tracking-wider">
+          備註</h2>
+<div class="bg-iosCard rounded-2xl border border-slate-100/90 shadow-sm overflow-hidden divide-y divide-slate-100">
+<!-- 所屬機構/銀行 -->
+
+<!-- 帳戶備註 -->
+<div class="px-4 py-3.5">
+<label class="text-sm font-medium text-slate-600 block mb-1.5" for="account-notes">備註說明</label>
+<textarea class="w-full text-xs font-normal text-slate-800 placeholder-slate-400 bg-slate-50 rounded-xl border border-slate-100 p-2.5 focus:ring-1 focus:ring-primary focus:border-primary resize-none" id="account-notes" placeholder="輸入帳戶相關備忘、卡號末四碼或理財目標..." rows="2">主要薪轉帳戶，每月自動提撥 NT$ 15,000 至定期定額投資。</textarea>
+</div>
+</div>
+</section>
+<!-- END: NotesAndDetailsSection -->
+<!-- BEGIN: DangerZoneSection -->
+<section class="pt-2" data-purpose="archive-zone-action">
+<button class="w-full bg-white hover:bg-rose-50/60 active:bg-rose-100 text-rose-500 font-semibold text-[15px] py-3.5 rounded-2xl border border-rose-100/80 shadow-sm transition duration-150 flex items-center justify-center space-x-1.5" type="button">
+<svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M20 7l-1.5 12.5A2 2 0 0116.5 21h-9a2 2 0 01-1.99-1.5L4 7m16 0V5a2 2 0 00-2-2H6a2 2 0 00-2 2v2m16 0H4m6 4h4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">封存此帳戶</span>
+</button>
+<p class="text-[11px] text-center text-slate-400 mt-2">
+封存後該帳戶將於列表中隱藏，歷史交易紀錄仍會保留，可隨時復原。
+</p>
+</section><section class="pt-2 pb-4" data-purpose="danger-zone-action">
+
+
+</section>
+<!-- END: DangerZoneSection -->
+</main>
+<!-- END: FormScrollArea -->
+<!-- BEGIN: HomeIndicator -->
+<div class="h-6 w-full flex justify-center items-center pb-2 bg-iosBg shrink-0" data-purpose="ios-home-indicator">
+<div class="w-32 h-1 bg-slate-900/40 rounded-full"></div>
+</div>
+<!-- END: HomeIndicator -->
+</div>
+<!-- END: PhoneFrame -->
+
+
+
+
+
+
+
+
+
+
+</body></html>

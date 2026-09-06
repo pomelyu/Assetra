@@ -1,0 +1,300 @@
+<!DOCTYPE html><html lang="zh-TW" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title class="">台積電 2330 · 交易紀錄</title>
+<!-- Tailwind CSS CDN with forms and container plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration for Portfolio Master Theme -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            },
+            surface: {
+              bg: '#F8FAFC',
+              card: '#FFFFFF',
+              subtle: '#F1F5F9',
+              border: '#E2E8F0',
+            },
+            iosText: {
+              primary: '#0F172A',
+              secondary: '#64748B',
+              tertiary: '#94A3B8',
+            },
+            up: '#10B981',
+            down: '#EF4444',
+            gold: '#F59E0B'
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"PingFang TC"', '"Helvetica Neue"', 'sans-serif'],
+          },
+          boxShadow: {
+            'ios-card': '0 2px 8px -1px rgba(0, 0, 0, 0.04), 0 1px 3px -1px rgba(0, 0, 0, 0.02)',
+            'floating': '0 8px 24px -4px rgba(16, 185, 129, 0.35)',
+          },
+          borderRadius: {
+            'ios-card': '20px',
+            'ios-sm': '12px',
+          }
+        }
+      }
+    }
+  </script>
+<!-- Typography and Scrollbar Tweaks -->
+<style data-purpose="custom-layout">
+    /* Hide horizontal scrollbar while keeping scrollable functionality */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    /* Native iOS tap feedback suppression */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #F8FAFC;
+    }
+  </style>
+</head>
+<body class="font-sans text-iosText-primary bg-surface-bg antialiased selection:bg-brand-100 min-h-screen flex justify-center">
+<!-- BEGIN: MobileDeviceContainer -->
+<!-- Container max-w-md to emulate iOS iPhone screen on wider displays -->
+<div class="w-full max-w-md min-h-screen flex flex-col bg-surface-bg relative pb-28 border-x border-slate-100 shadow-sm" data-purpose="mobile-viewport">
+<!-- BEGIN: TopStatusBar -->
+<div class="pt-3 px-7 flex justify-between items-center text-xs font-semibold tracking-tight text-slate-800 select-none bg-surface-bg" data-purpose="ios-status-bar">
+<span class="">9:41</span>
+<!-- Dynamic Island / Sensor Notch Placeholder -->
+<div class="w-24 h-4 bg-black rounded-full mx-auto -mt-1 hidden sm:block opacity-90"></div>
+<div class="flex items-center space-x-1.5">
+<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+<path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.32 19.64 10.61 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"></path>
+</svg>
+<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+<path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 0 0-6 0zm-4-4l2 2a7.074 7.074 0 0 1 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"></path>
+</svg>
+<div class="w-5 h-2.5 border border-slate-800 rounded-sm p-0.5 flex items-center">
+<div class="w-full h-full bg-slate-800 rounded-[1px]"></div>
+</div>
+</div>
+</div>
+<!-- END: TopStatusBar -->
+<!-- BEGIN: NavigationBar -->
+<header class="sticky top-0 z-30 bg-surface-bg/85 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-slate-200/50" data-purpose="app-navigation">
+<!-- Back Button -->
+<button aria-label="返回股市資產" class="flex items-center text-slate-800 active:text-brand-600 transition-colors py-1 pr-2 -ml-1" type="button">
+<svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+<path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-sm font-medium">股票</span>
+</button>
+<!-- Center Title -->
+<div class="text-center"><h1 class="text-base font-bold text-iosText-primary leading-tight">台積電 2330</h1>
+</div>
+<!-- Action Buttons (Export / Search Filter) -->
+<div class="flex items-center space-x-1">
+
+<button aria-label="條件篩選" class="p-2 text-slate-600 hover:text-brand-600 active:scale-95 transition-all" type="button">
+
+</button>
+</div>
+</header>
+<!-- END: NavigationBar -->
+<!-- Main Scrollable Content Area -->
+<main class="flex-1 px-4 pt-3 space-y-4">
+<!-- BEGIN: AccountSummaryCard -->
+<!-- Summarizes this specific account's valuation, realized, and unrealized gains -->
+<section class="bg-surface-card rounded-ios-card p-5 border border-surface-border/70 shadow-ios-card" data-purpose="account-summary-card"><div class="flex justify-between items-start mb-3">
+<div>
+<div class="inline-flex items-center space-x-1.5 bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
+<span class="">均價 $620.0 · 現價 $640.0&nbsp;&nbsp;</span>
+</div>
+<p class="text-xs text-iosText-secondary mt-1.5">持股總現值 (估值)</p>
+</div>
+<div class="text-right">
+<span class="text-[11px] font-medium text-slate-400">累計配息/實現</span>
+<p class="text-xs font-bold text-up">+NT$ 42,000</p>
+</div>
+</div>
+<div class="flex items-baseline justify-between">
+<div class="text-2xl font-extrabold tracking-tight text-iosText-primary">
+  NT$ 960,400
+</div>
+<div class="flex items-center text-up font-bold text-xs bg-emerald-50 px-2 py-1 rounded-lg">
+<svg class="w-3.5 h-3.5 mr-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+<path d="M5 10l7-7m0 0l7 7m-7-7v18" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">+340,400 (+54.9%)</span>
+</div>
+</div>
+<div class="w-full h-px bg-slate-100 my-4"></div>
+<div class="space-y-1.5">
+<p class="text-[11px] font-medium text-iosText-secondary">帳戶篩選</p>
+<div class="flex items-center space-x-2 overflow-x-auto no-scrollbar pb-1 pt-0.5" data-purpose="ticker-pill-selector">
+<button class="whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold bg-brand-500 text-white shadow-sm transition-transform active:scale-95" type="button">
+  全部</button>
+<button class="whitespace-nowrap px-3 py-1 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition-all" type="button">
+  證券戶1</button>
+<button class="whitespace-nowrap px-3 py-1 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition-all" type="button">
+  證券戶2&nbsp;</button>
+</div>
+</div></section>
+<!-- END: AccountSummaryCard -->
+<!-- BEGIN: TransactionTypeFilter -->
+<!-- Segmented Control for Transaction Types (All, Buy, Sell, Dividend) -->
+<section class="flex bg-slate-200/75 p-1 rounded-xl" data-purpose="transaction-type-filter">
+<button class="flex-1 py-1.5 text-xs font-bold rounded-[9px] bg-white text-iosText-primary shadow-sm transition-all text-center" type="button">
+          全部 (All)
+        </button>
+<button class="flex-1 py-1.5 text-xs font-semibold rounded-[9px] text-iosText-secondary hover:text-slate-900 transition-all text-center" type="button">
+          買入
+        </button>
+<button class="flex-1 py-1.5 text-xs font-semibold rounded-[9px] text-iosText-secondary hover:text-slate-900 transition-all text-center" type="button">
+          賣出
+        </button>
+<button class="flex-1 py-1.5 text-xs font-semibold rounded-[9px] text-iosText-secondary hover:text-slate-900 transition-all text-center" type="button">
+          現金股利
+        </button>
+</section>
+<!-- END: TransactionTypeFilter -->
+<!-- BEGIN: TransactionListSection -->
+<section class="space-y-4" data-purpose="transaction-groups"><div class="">
+<div class="flex justify-between items-center px-1 mb-2">
+<h2 class="text-xs font-bold tracking-wide uppercase text-iosText-secondary">2024 年</h2>
+<span class="text-[11px] text-slate-400 font-medium">共 5 筆明細</span>
+</div>
+<div class="bg-surface-card rounded-ios-card shadow-ios-card border border-surface-border/70 divide-y divide-slate-100 overflow-hidden"><article class="px-4 py-3.5 active:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" data-purpose="transaction-item">
+  <div class="flex items-center space-x-3">
+    <div class="w-8 h-8 rounded-full bg-amber-50 text-gold flex items-center justify-center shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5"></circle>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M14.5 9.5a2.5 2.5 0 0 0-5 0c0 2 5 1.5 5 3.5a2.5 2.5 0 0 1-5 0m2.5-5.5v1.5m0 8v1.5"></path>
+      </svg>
+    </div>
+    <div>
+      <div class="flex items-center space-x-1.5">
+        <span class="font-bold text-sm text-iosText-primary">12/15</span>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">證券戶1</span>
+      </div>
+      
+    </div>
+  </div>
+  <div class="text-right">
+    <div class="text-sm font-bold text-brand-600 tracking-tight">+NT$ 4,000</div>
+  </div>
+</article>
+<article class="px-4 py-3.5 active:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" data-purpose="transaction-item">
+  <div class="flex items-center space-x-3">
+    <div class="w-8 h-8 rounded-full bg-red-50 text-down flex items-center justify-center shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17L7 7m0 0v8m0-8h8" class=""></path>
+      </svg>
+    </div>
+    <div>
+      <div class="flex items-center space-x-1.5">
+        <span class="font-bold text-sm text-iosText-primary">09/20</span>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">證券戶1</span>
+      </div>
+      <div class="text-xs text-iosText-secondary mt-0.5">55股 @&nbsp;<span style="font-size: 0.75rem; font-family: -apple-system, BlinkMacSystemFont, &quot;SF Pro Display&quot;, &quot;SF Pro Text&quot;, &quot;PingFang TC&quot;, &quot;Helvetica Neue&quot;, sans-serif;" class="">$980.00</span></div>
+    </div>
+  </div>
+  <div class="text-right">
+    <div class="text-sm font-bold text-brand-600 tracking-tight">+NT$ 490,000</div>
+  </div>
+</article>
+<article class="px-4 py-3.5 active:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" data-purpose="transaction-item">
+  <div class="flex items-center space-x-3">
+    <div class="w-8 h-8 rounded-full bg-emerald-50 text-brand-600 flex items-center justify-center shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7 7l10 10m0 0v-8m0 8h-8" class=""></path>
+      </svg>
+    </div>
+    <div>
+      <div class="flex items-center space-x-1.5">
+        <span class="font-bold text-sm text-iosText-primary">06/18</span>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">證券戶1</span>
+      </div>
+      <div class="text-xs text-iosText-secondary mt-0.5">23股 @ $960.00</div>
+    </div>
+  </div>
+  <div class="text-right">
+    <div class="text-sm font-bold text-iosText-primary tracking-tight">-NT$ 960,410</div>
+  </div>
+</article>
+<article class="px-4 py-3.5 active:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" data-purpose="transaction-item">
+  <div class="flex items-center space-x-3">
+    <div class="w-8 h-8 rounded-full bg-emerald-50 text-brand-600 flex items-center justify-center shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7 7l10 10m0 0v-8m0 8h-8" class=""></path>
+      </svg>
+    </div>
+    <div>
+      <div class="flex items-center space-x-1.5">
+        <span class="font-bold text-sm text-iosText-primary">03/22</span>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">證券戶2</span>
+      </div>
+      <div class="text-xs text-iosText-secondary mt-0.5">45股 @ $820.00</div>
+    </div>
+  </div>
+  <div class="text-right">
+    <div class="text-sm font-bold text-iosText-primary tracking-tight">-NT$ 246,100</div>
+  </div>
+</article>
+<article class="px-4 py-3.5 active:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer" data-purpose="transaction-item">
+  <div class="flex items-center space-x-3">
+    <div class="w-8 h-8 rounded-full bg-amber-50 text-gold flex items-center justify-center shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5"></circle>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M14.5 9.5a2.5 2.5 0 0 0-5 0c0 2 5 1.5 5 3.5a2.5 2.5 0 0 1-5 0m2.5-5.5v1.5m0 8v1.5"></path>
+      </svg>
+    </div>
+    <div>
+      <div class="flex items-center space-x-1.5">
+        <span class="font-bold text-sm text-iosText-primary">01/10</span>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">證券戶1</span>
+      </div>
+      
+    </div>
+  </div>
+  <div class="text-right">
+    <div class="text-sm font-bold text-brand-600 tracking-tight">+NT$ 3,500</div>
+  </div>
+</article></div>
+</div></section>
+<!-- END: TransactionListSection -->
+<!-- Empty status subtle indicator -->
+
+</main>
+<!-- BEGIN: FloatingAddButton -->
+<!-- Primary CTA to quickly add a new transaction record for this account -->
+<aside class="fixed bottom-6 z-40 w-full max-w-md px-5 flex justify-end pointer-events-none" data-purpose="floating-action-container">
+<button aria-label="記一筆交易" class="pointer-events-auto bg-brand-500 hover:bg-brand-600 active:scale-95 text-white flex items-center justify-center w-14 h-14 rounded-full shadow-floating transition-all transform duration-150" type="button"><svg class="w-6 h-6 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</aside>
+<!-- END: FloatingAddButton -->
+<!-- BEGIN: NativeBottomIndicator -->
+<!-- iOS Home Indicator bar for standard mobile frame aesthetic -->
+<footer class="w-full pt-4 pb-1.5 flex justify-center bg-transparent pointer-events-none" data-purpose="ios-home-indicator">
+<div class="w-32 h-1 bg-slate-300 rounded-full"></div>
+</footer>
+<!-- END: NativeBottomIndicator -->
+</div>
+<!-- END: MobileDeviceContainer -->
+
+
+
+
+
+
+</body></html>
