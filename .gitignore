@@ -86,3 +86,4 @@ app.*.map.json
 # Add your project-specific rules below this line
 .codegraph
 .agents/skills
+tmp/
