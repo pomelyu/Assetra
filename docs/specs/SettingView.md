@@ -1,5 +1,7 @@
 # SettingView
 
+資料欄位、計算規則與 Data API 依 [schema](../schema.md)。
+
 ## Purpose
 
 集中提供帳戶、分類、資料與應用偏好設定的入口，不在本頁直接編輯領域資料。
@@ -28,6 +30,6 @@
 
 ## Acceptance Criteria
 
-- 每個管理項目導向 overview 指定的唯一 view。
+- 每個管理項目導向 `AGENTS.md` routing 指定的唯一 view。
 - 所有立即生效的偏好在重啟後仍保留。
 - 安全或備份狀態不得只由畫面切換推定，必須反映實際成功結果。
