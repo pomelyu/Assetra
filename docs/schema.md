@@ -260,19 +260,22 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 ## Shared interaction contract
 
+- All operations are one-shot asynchronous calls (Future in Dart); signatures below show the resolved result type. There are no watch methods, Streams, subscriptions or database change notifications.
+- The logic layer explicitly reloads relevant queries when a view opens or resumes after navigation, and after successful writes, market refreshes or backup restore. Other affected views reload on their next entry. Automatic market-refresh completion must trigger re-querying the currently visible affected view; the Data API does not push updates. Failed writes keep the form/current data and expose an error.
+
 - On confirmation, the caller constructs input from the form and calls create/update directly. Preview is optional, read-only and never a prerequisite or a staging store. Writes re-read and validate within the database transaction; success returns TransactionId (create) or completes (update), and failure throws a typed DataApiException. Keep form values on failure.
 - Transaction lists use descending `(OCCURRED_AT, ENTRY_ORDER)` order with stable pagination; financial replay uses ascending order.
 - Missing quotes do not prevent recording trades or calculating holdings/cost. If no successful quote exists, expose missing valuation explicitly (including affected totals), not zero or the purchase price. Cached successful data is usable with its timestamps/stale status. Apply the same distinction to missing conversion rates.
 
 ## StockView
 
-- `watchStockOverview(marketCode?, stockAccountId?) -> StockOverview`: Observe filtered active and closed positions, totals, quote/rate timestamps and stale state.
+- `getStockOverview(marketCode?, stockAccountId?) -> StockOverview`: Fetch filtered active and closed positions, totals, quote/rate timestamps and stale state.
 - `listStockPositions(marketCode?, stockAccountId?, cursor?, limit) -> Page<StockPositionSummary>`: Page through the filtered position list.
 - `refreshMarketData() -> MarketRefreshResult`: Refresh quotes and rates without discarding last successful data on failure.
 
 ## StockDetailView
 
-- `watchStockDetail(securityId, stockAccountId?) -> StockDetail`: Observe aggregated quantity, FIFO cost, current value, realized/unrealized profit and income.
+- `getStockDetail(securityId, stockAccountId?) -> StockDetail`: Fetch aggregated quantity, FIFO cost, current value, realized/unrealized profit and income.
 - `listStockTransactions(securityId, stockAccountId?, kinds?, cursor?, limit) -> Page<StockTransactionItem>`: List the security's source events in descending transaction-time and insertion order.
 
 ## StockTransactionView
@@ -287,13 +290,13 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 ## AssetView
 
-- `watchAssetOverview(categoryId?) -> AssetOverview`: Observe filtered account summaries, totals, conversion timestamps and stale state.
+- `getAssetOverview(categoryId?) -> AssetOverview`: Fetch filtered account summaries, totals, conversion timestamps and stale state.
 - `listAssetAccounts(categoryId?, cursor?, limit) -> Page<AccountSummary>`: Page through non-archived accounts without double-counting investment positions.
 - `refreshMarketData() -> MarketRefreshResult`: Share the same quote/rate refresh contract used by `StockView`.
 
 ## AccountDetailView
 
-- `watchAccountDetail(accountId) -> AccountDetail`: Observe account metadata, derived cost/value, realized/unrealized profit and archive state.
+- `getAccountDetail(accountId) -> AccountDetail`: Fetch account metadata, derived cost/value, realized/unrealized profit and archive state.
 - `listAccountTransactions(accountId, kinds?, direction?, cursor?, limit) -> Page<AccountTransactionItem>`: List source events and read-only projections with their owning editor type.
 
 ## AccountTransactionView
@@ -328,13 +331,13 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 ## SettingView
 
-- `watchAppSettings() -> AppSettings`: Observe persisted theme, language, update mode and biometric-lock preference.
+- `getAppSettings() -> AppSettings`: Fetch persisted theme, language, update mode and biometric-lock preference.
 - `updateAppSettings(patch) -> AppSettings`: Atomically persist only supplied preference fields.
 - `setBiometricLockEnabled(enabled) -> AppSettings`: Persist the preference only after the platform authentication boundary succeeds.
 
 ## CategoryManagerView
 
-- `watchCategories() -> List<CategorySummary>`: Observe categories in user-defined order with current account usage counts.
+- `listCategories() -> List<CategorySummary>`: Fetch categories in user-defined order with current account usage counts.
 - `createCategory(input) -> CategoryId`: Create a category with a stable ID.
 - `updateCategory(categoryId, input) -> void`: Rename or recolor without changing historical financial data.
 - `reorderCategories(orderedCategoryIds) -> void`: Atomically replace category display order.
@@ -342,7 +345,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 ## AccountManagerView
 
-- `watchManagedAccounts(status?, accountType?, categoryId?) -> List<ManagedAccountSummary>`: Observe active and archived accounts with funding dependencies.
+- `listManagedAccounts(status?, accountType?, categoryId?) -> List<ManagedAccountSummary>`: Fetch active and archived accounts with funding dependencies.
 - `archiveAccount(accountId) -> void`: Reject archive when another active STOCK or INVESTMENT account still depends on it as funding source.
 - `reactivateAccount(accountId) -> void`: Reactivate the same stable account.
 

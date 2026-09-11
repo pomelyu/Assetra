@@ -76,8 +76,8 @@
 畫面的 prototype 定義在 `docs/prototype`
 - 畫面上的數字只作為畫面展示，不符合數學上的一致性
 - 畫面上的說明文字和元件位置只作為畫面的表達，不一定符合最終呈現，且需要考慮跨view的一致性
-- 如果 Prototype 中與 schema 或 spec 有衝突，以 schema 或 spec 為準。
-- Prototype 中舊有的兩類帳戶 toggle、交易費用欄位與初始值文案，須依 schema 及 view specs 解讀。
+- 如果 Prototype 中與 schema 或 spec 有衝突，以 `schema.md` 或 spec 為準。
+- Prototype 中舊有的兩類帳戶 toggle、交易費用欄位與初始值文案，須依 `schema.md` 及 view specs 解讀。
 
 ---
 
@@ -92,7 +92,7 @@
 
 ## 4. Tech Stack
 - 使用 Dart + Flutter 開發，UI 框架用 Forui
-- 本地資料庫使用 SQLite；資料 schema 與各 view Data API 見 docs/schema.md
+- 本地資料庫使用 SQLite；資料 schema 與各 view Data API 見 `docs/schema.md` 與 `docs/data_api.md` 
 
 ---
 
