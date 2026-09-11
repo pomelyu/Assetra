@@ -1,6 +1,6 @@
 # Data API 與 DB 結構草案
 
-本文件只提供模組與 Dart 呼叫骨架（placeholder），不是可執行程式。欄位與規則以 [schema](docs/schema.md)、[股票交易](docs/specs/StockTransactionView.md)及[帳戶交易](docs/specs/AccountTransactionView.md)為準；此階段不建立正式 Dart 檔案。
+本文件說明已實作的 Data API 與內部模組邊界。欄位與規則以 [schema](schema.md)、[股票交易](specs/StockTransactionView.md)及[帳戶交易](specs/AccountTransactionView.md)為準；公開入口位於 `lib/data/data.dart`。
 
 ## 1. 模組與預計位置
 
@@ -11,7 +11,7 @@ lib/
     ├── data.dart                       # 唯一公開 import 入口，只負責 export
     ├── portfolio_data_api.dart         # 具體 class PortfolioDataApi，實作所有公開 API 方法
     ├── models/
-    │   ├── money.dart                  # Money、ShareQuantity：有明確倍率的整數
+    │   ├── money.dart                  # Money、ShareQuantity：公開實值與內部整數轉換
     │   ├── transaction_input.dart      # StockTransactionInput、AccountTransactionInput
     │   │                               # 及 StockBuyInput、AccountTransferInput 等子類
     │   ├── transaction_result.dart     # TransactionId、Preview、交易查詢結果
@@ -29,7 +29,7 @@ lib/
             └── transaction_store.dart  # 內部 SQL 讀寫與 row mapping
 ```
 
-這裡的「模組」指職責與檔案分組，不代表全部都是 class。API、DB 連線適合用 class；無狀態驗證與帳務計算用頂層純函式即可。目錄先展示兩個交易案例；其他功能需要時再增加內部檔案，不預先建立空的 service class。
+這裡的「模組」指職責，不代表全部都是 class。目前 `PortfolioDataApi` 包含 API 協調與查詢實作；SQLite schema、連線／transaction 及精確整數運算已分離至 `src/`。未來若內部程式持續增長，可在不改公開 API 的前提下再抽出 store、validator 與 query 檔案，不預先建立空的 service class。
 
 `data.dart` 只匯出具體的 `PortfolioDataApi` 和公開資料型別，不再維護一份獨立抽象介面、另一份 SQLite API class 或獨立工廠函式檔案。穩定契約由公開方法的型別、行為說明及測試維護，不靠繼承層級達成。
 
@@ -49,7 +49,7 @@ Dart 的 `_` 隱私範圍是 library，不是資料夾；`src/` 是內部使用�
 
 ### 2.1 具體 class 骨架
 
-以下省略內部演算法，以 `UnimplementedError` 明確標記文件 placeholder；不是抽象方法，也不是已完成實作。
+以下只示意公開 class 的形狀；正式實作位於同名 Dart 檔案，沒有 `UnimplementedError`。
 
 ```dart
 // 預計：lib/data/portfolio_data_api.dart
@@ -139,7 +139,7 @@ final detail = await api.getAccountDetail(accountB);
 
 所有資料操作皆回傳 Future，一次呼叫只取得一次結果；不使用 watch、Stream、訂閱或資料變更通知。create 成功回傳 ID，失敗拋出 `DataApiException`；不另外以 true／false 隱藏失敗原因。不能將相同 create 呼叫視為可安全自動重試：第一版由畫面防止重複提交，API 未承諾 idempotency key。
 
-`StockBuyInput` 與 `AccountTransferInput` 是不可變輸入 class，分別屬於兩種交易輸入的 sealed class 家族。股息、轉帳等輸入不提供不適用的 fee 欄位。`Money` 帶幣別與最小單位整數；`ShareQuantity` 帶已依共通常數縮放的股數整數。
+`StockBuyInput` 與 `AccountTransferInput` 是不可變輸入 class，分別屬於兩種交易輸入的 sealed class 家族。股息、轉帳等輸入不提供不適用的 fee 欄位。公開 API 中 `Money.units` 是實際幣別金額，`ShareQuantity.units` 是實際股數；呼叫端不接觸資料庫倍率。Data API 寫入時才將金額、匯率及股數轉為 schema 規定的整數，讀出時還原為實際數值。
 
 ## 3. 案例一：A 使用 B 的資金買入台積電
 
@@ -153,7 +153,7 @@ final input = StockBuyInput(
   securityId: security2330,
   stockAccountId: accountA,
   fundingAccountId: accountB,
-  quantity: ShareQuantity(units: 1000), // 10 股 × schema 現行倍率 100
+  quantity: ShareQuantity(units: 10), // 呼叫端直接輸入 10 股
   unitPrice: Money(currencyCode: 'TWD', units: 2412),
   fee: Money(currencyCode: 'TWD', units: 10),
 );
@@ -180,7 +180,7 @@ try {
 | Table | 欄位與範例值 |
 |---|---|
 | TRANSACTIONS | ID = t1、KIND = STOCK_BUY、OCCURRED_AT = 2026-09-11 10:00、ENTRY_ORDER = 系統分配的新增順序、UPDATED_AT = 寫入時 UTC 時間 |
-| STOCK_TRANSACTIONS | TRANSACTION_ID = t1、SECURITY_ID = security2330、STOCK_ACCOUNT_ID = A、FUNDING_ACCOUNT_ID = B、QUANTITY = 1000、UNIT_PRICE = 2412、FEE = 10 |
+| STOCK_TRANSACTIONS | TRANSACTION_ID = t1、SECURITY_ID = security2330、STOCK_ACCOUNT_ID = A、FUNDING_ACCOUNT_ID = B、QUANTITY = 100000（10 股的 DB 內部值）、UNIT_PRICE = 2412、FEE = 10 |
 
 結果：A 的持股成本增加 **TWD 24,130**；B 的成本及現值各減少 **TWD 24,130**，允許變成負數。不另外建立 B 的支出事件，也不更新 ACCOUNTS 的初始值或存入衍生餘額。
 
@@ -196,7 +196,7 @@ final input = AccountTransferInput(
   occurredAt: '2026-09-11 10:00', // 台北時間，精度到分
   sourceAccountId: accountC,
   targetAccountId: accountB,
-  sourceAmount: Money(currencyCode: 'USD', units: 10000),
+  sourceAmount: Money(currencyCode: 'USD', units: 100),
   targetAmount: Money(currencyCode: 'TWD', units: 3200),
 );
 

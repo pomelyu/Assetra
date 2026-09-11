@@ -15,7 +15,8 @@
 - Unsupported currencies require an explicit precision constant before use; never infer a default multiplier.
 - Precision constants are part of the versioned schema/backup contract. Changing an existing currency multiplier requires a schema migration and compatible import conversion, even though the constants are not stored per row.
 - All exchange rates use two decimal places, independent of currency-specific money precision. Application constants: `EXCHANGE_RATE_DECIMAL_PLACES = 2`, `EXCHANGE_RATE_MULTIPLIER = 100`; for example, rate 32.15 is stored as 3215.
-- Share quantities use scaled `INTEGER` values: stored value = display value × 100.
+- Share quantities use scaled `INTEGER` values: stored value = display value × 10000, supporting four decimal places.
+- Public Data API callers always pass and receive actual monetary amounts, exchange rates and share quantities. Multipliers are applied only when values cross the database boundary.
 - Boolean values use `INTEGER` constrained to `0` or `1`.
 - UPDATED_AT records creation time on insert and the latest modification time on update; a separate original creation timestamp is not retained.
 - Financial source rows are stored; holdings, balances, FIFO results, summaries and view projections are derived.
@@ -36,6 +37,7 @@
 Rules:
 
 - `NAME` cannot be blank and `SORT_ORDER` cannot be negative.
+- Category names are unique after trimming and compared case-insensitively by the Data API.
 - A category referenced by any archived account cannot be deleted. Otherwise, referenced active accounts must be atomically reassigned before deletion; no operation may edit an archived account.
 - At least one category must always remain.
 
@@ -227,8 +229,8 @@ Rules:
 Rules:
 
 - `(ACCOUNT_ID, WEEK_START_DATE)` is unique, enforcing at most one snapshot per account per Monday–Sunday week. Validate WEEK_START_DATE against SNAPSHOT_DATE on insert and import.
-- For each active account independently, create its snapshot on the first successful valuation in the week with all required prices/rates successfully refreshed. An account needing no external prices/rates has no market-data prerequisite. Do not overwrite a snapshot already present for that week.
-- Missing or failed required market data skips only the affected account; retry after a successful update within that week. Last successful cached prices/rates may still support current display but failed refreshes must not generate a new snapshot. No fabricated backfill for missed weeks.
+- Each call evaluates every active account independently and creates a snapshot only when its current valuation and required conversion rate are available. Do not overwrite a snapshot already present for that week.
+- Missing required cached data skips only the affected account; a later call may capture it after data becomes available. The snapshot API uses the latest successfully saved quote/rate and does not track whether a separate refresh attempt most recently failed. No fabricated backfill is created automatically for missed weeks.
 - Snapshot values are immutable historical facts and are never updated by later prices or exchange rates.
 - For target date D, each account uses its snapshot with the greatest `SNAPSHOT_DATE <= D`; when no such snapshot exists, its cost, value and realized profit are all zero.
 - A historical report date does not require snapshots for every account and has no complete/incomplete state. A prior snapshot carries forward until a later snapshot supersedes it. This differs from missing-price status in current valuations.
@@ -256,41 +258,49 @@ Rules:
 
 # Data API
 
-The signatures below describe repository contracts, not concrete Dart classes. All monetary inputs and outputs carry a currency code and an integer scaled by the application currency constants. Fee inputs and outputs use one combined fee-and-tax amount only for STOCK_BUY, STOCK_SELL, INVESTMENT_BUY and INVESTMENT_SELL; all other kinds have no fee. Only general-account transfers allow differing currencies; stock security and both accounts must share one currency, and all manual investment funding accounts must match their investment account; funding-account options and submitted overrides are restricted to general accounts; list queries use stable ordering and support pagination when the result can grow without bound. All writes validate input first and commit every related effect atomically.
+The signatures below describe the public methods of the concrete Dart `PortfolioDataApi` class. Public monetary values use `Money(currencyCode, units)`, where `units` is the actual caller-facing amount; share quantities likewise use actual shares. Integer scaling is an internal database-boundary detail and is never required from a caller. Fee inputs and outputs use one combined fee-and-tax amount only for STOCK_BUY, STOCK_SELL, INVESTMENT_BUY and INVESTMENT_SELL; all other kinds have no fee. Only general-account transfers allow differing currencies; stock security and both accounts must share one currency, and all manual investment funding accounts must match their investment account. Funding-account options and submitted overrides are restricted to general accounts. List queries use stable ordering and support pagination when the result can grow without bound. All writes validate input first and commit every related effect atomically.
+
+Public numeric precision:
+
+- `Money.units` is an actual `double`: TWD and JPY accept integers; USD and EUR accept at most two decimal places.
+- `ShareQuantity.units` is an actual `double` share count with at most four decimal places.
+- Exchange-rate input is an actual `double` with at most two decimal places.
+- Report fields named `baseCost`, `baseValue` or `baseRealizedPnl` are TWD integer display units because TWD has zero decimal places.
 
 ## Shared interaction contract
 
 - All operations are one-shot asynchronous calls (Future in Dart); signatures below show the resolved result type. There are no watch methods, Streams, subscriptions or database change notifications.
+- `PortfolioDataApi.open(databasePath, now?, authenticateBiometric?, marketDataRefresher?) -> PortfolioDataApi` opens or creates the SQLite store and injects optional platform boundaries. `close() -> void` closes its owned connection and is safe to call repeatedly. Other calls after close fail with `DataApiException` using the `closed` error code.
 - The logic layer explicitly reloads relevant queries when a view opens or resumes after navigation, and after successful writes, market refreshes or backup restore. Other affected views reload on their next entry. Automatic market-refresh completion must trigger re-querying the currently visible affected view; the Data API does not push updates. Failed writes keep the form/current data and expose an error.
 
 - On confirmation, the caller constructs input from the form and calls create/update directly. Preview is optional, read-only and never a prerequisite or a staging store. Writes re-read and validate within the database transaction; success returns TransactionId (create) or completes (update), and failure throws a typed DataApiException. Keep form values on failure.
 - Transaction lists use descending `(OCCURRED_AT, ENTRY_ORDER)` order with stable pagination; financial replay uses ascending order.
-- Missing quotes do not prevent recording trades or calculating holdings/cost. If no successful quote exists, expose missing valuation explicitly (including affected totals), not zero or the purchase price. Cached successful data is usable with its timestamps/stale status. Apply the same distinction to missing conversion rates.
+- Missing quotes do not prevent recording trades or calculating holdings/cost. If no successful quote or required conversion rate exists, the affected `value` or aggregate total is null and `isValuationComplete` is false; missing data is not represented as zero or purchase price. The current public result DTOs do not expose quote/rate timestamps or a stale flag.
 
 ## StockView
 
-- `getStockOverview(marketCode?, stockAccountId?) -> StockOverview`: Fetch filtered active and closed positions, totals, quote/rate timestamps and stale state.
+- `getStockOverview(marketCode?, stockAccountId?) -> StockOverview`: Fetch filtered active and closed positions, optional TWD totals and `isValuationComplete`.
 - `listStockPositions(marketCode?, stockAccountId?, cursor?, limit) -> Page<StockPositionSummary>`: Page through the filtered position list.
 - `refreshMarketData() -> MarketRefreshResult`: Refresh quotes and rates without discarding last successful data on failure.
 
 ## StockDetailView
 
 - `getStockDetail(securityId, stockAccountId?) -> StockDetail`: Fetch aggregated quantity, FIFO cost, current value, realized/unrealized profit and income.
-- `listStockTransactions(securityId, stockAccountId?, kinds?, cursor?, limit) -> Page<StockTransactionItem>`: List the security's source events in descending transaction-time and insertion order.
+- `listStockTransactions(securityId, stockAccountId?, kinds?, cursor?, limit) -> Page<AccountTransactionItem>`: List the security's source events in descending transaction-time and insertion order. Items currently contain transaction identity, time, entry order, kind and note.
 
 ## StockTransactionView
 
-- `getStockTransactionForm(transactionId?) -> StockTransactionFormData`: Load an existing event or creation options, including securities, eligible STOCK accounts and same-currency GENERAL funding defaults.
-- `searchSecurities(marketCode, query, limit) -> List<SecurityOption>`: Find existing securities by normalized symbol or name for a new transaction.
+- `getStockTransactionForm(transactionId?) -> StockTransactionFormData`: Return the security choices and, when editing, the decoded existing transaction. Account choices and funding defaults are not part of this DTO.
+- `searchSecurities(query, marketCode?, limit) -> List<SecurityOption>`: Find existing securities by case-insensitive symbol or name, optionally restricted by market.
 - `resolveSecurity(input) -> SecurityId`: Validate and create a previously unknown market/symbol pair before its first transaction, or return the existing stable ID.
-- `previewStockTransaction(input) -> StockTransactionPreview`: Validate input and calculate trade, settlement and projected FIFO effects without writing.
+- `previewStockTransaction(input) -> StockTransactionPreview`: Validate the candidate values and return only the calculated settlement amount without writing. FIFO effects are validated again by create/update.
 - `createStockTransaction(input) -> TransactionId`: Atomically create the stock event and funding-account projection.
 - `updateStockTransaction(transactionId, input) -> void`: Atomically replace editable values and revalidate all affected later FIFO events.
 - `deleteStockTransaction(transactionId) -> void`: Delete the source event only when the remaining history is valid, then recalculate derived results.
 
 ## AssetView
 
-- `getAssetOverview(categoryId?) -> AssetOverview`: Fetch filtered account summaries, totals, conversion timestamps and stale state.
+- `getAssetOverview(categoryId?) -> AssetOverview`: Fetch filtered account summaries, optional TWD totals and `isValuationComplete`.
 - `listAssetAccounts(categoryId?, cursor?, limit) -> Page<AccountSummary>`: Page through non-archived accounts without double-counting investment positions.
 - `refreshMarketData() -> MarketRefreshResult`: Share the same quote/rate refresh contract used by `StockView`.
 
@@ -301,7 +311,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 ## AccountTransactionView
 
-- `getAccountTransactionForm(transactionId?, accountId?) -> AccountTransactionFormData`: Load valid kinds for GENERAL or INVESTMENT accounts, eligible related accounts, currencies and existing values; STOCK-owned events use StockTransactionView.
+- `getAccountTransactionForm(transactionId?, accountId?) -> AccountTransactionFormData`: Validate an optional initiating account and, when editing, return the decoded existing transaction. Valid kinds and related-account choices are not part of this DTO; STOCK-owned events use StockTransactionView.
 - `previewAccountTransaction(input) -> AccountTransactionPreview`: Validate and calculate cost, value, cash-flow and profit effects without writing.
 - `createAccountTransaction(input) -> TransactionId`: Atomically create one general-account or manual-investment event.
 - `updateAccountTransaction(transactionId, input) -> void`: Atomically replace the event and all derived effects.
@@ -309,7 +319,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 ## AccountEditView
 
-- `getAccountEditor(accountId?) -> AccountEditorData`: Load categories, supported currencies, the three account-type options and existing account data.
+- `getAccountEditor(accountId?) -> AccountEditorData`: Load categories and optional existing account data. Supported currencies and account-type options are application constants/UI choices, not fields in this DTO.
 - `createAccount(input) -> AccountId`: Create a general account with initial cost and value.
 - `updateAccount(accountId, input) -> void`: Update permitted metadata and initial values with full-history validation; reject archived accounts. The input never accepts `accountType`.
 - `archiveAccount(accountId) -> void`: Archive when no active funding dependency prevents it.
@@ -317,7 +327,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 ## AccountEditView-invest
 
-- `getInvestmentAccountEditor(accountId?, createAccountType?) -> InvestmentAccountEditorData`: For creation, accept the selected STOCK or INVESTMENT type; for editing, derive the immutable type from `accountId`. Load categories and same-currency GENERAL funding accounts.
+- `getInvestmentAccountEditor(accountId?, createAccountType?) -> InvestmentAccountEditorData`: For creation, accept the selected STOCK or INVESTMENT type; for editing, return the existing account. Load categories and all active GENERAL funding-account candidates; create/update performs the final same-currency validation.
 - `createInvestmentAccount(input) -> AccountId`: Create the explicitly selected STOCK or INVESTMENT account type with a required same-currency GENERAL funding account.
 - `updateInvestmentAccount(accountId, input) -> void`: Update permitted STOCK/INVESTMENT metadata and the default for future settlements only; allow INVESTMENT initial-value edits with full-history validation, keep STOCK initial values zero, and reject archived accounts. The input never accepts `accountType`.
 - `archiveAccount(accountId) -> void`: Use the shared account archive contract.
@@ -327,7 +337,14 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 - `getCurrentAllocation() -> AllocationReport`: Derive current TWD value and percentage by current category without double-counting positions.
 - `getCurrentCostValueComparison(groupBy) -> CostValueReport`: Compare current cost and value by category or account.
+- `captureWeeklySnapshots(snapshotDate) -> int`: For the requested Taipei `YYYY-MM-DD` date, insert at most one snapshot per active account for that week, skipping accounts whose current valuation or conversion rate is unavailable; return the number inserted.
 - `getHistoricalTrend(period) -> HistoricalTrendReport`: Return dated historical points from weekly account snapshots, carrying forward each account's latest snapshot at or before each date, using zero when absent and applying the archive-date rule. Include a separately identified “now” point calculated from current account totals, not snapshots; expose missing valuation inputs. Period options remain 3M, 6M, 1Y, 3Y and all.
+
+## Market data boundary
+
+- `refreshMarketData() -> MarketRefreshResult`: Invoke the injected market-data refresher. The result contains quote-success count, rate-success count and failure messages; when no refresher was injected, throw `DataApiException` with the `unavailable` error code.
+- `saveStockPrice(securityId, price, quotedAt) -> void`: Insert or replace the latest successful positive quote. `price` must use the security currency; `quotedAt` is converted to UTC.
+- `saveExchangeRate(fromCurrencyCode, rate, quotedAt) -> void`: Insert or replace the latest successful non-TWD-to-TWD rate. `rate` is a positive actual value with at most two decimals; `quotedAt` is converted to UTC.
 
 ## SettingView
 
@@ -351,6 +368,6 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 ## DataManagerView
 
-- `exportBackup(destination) -> ExportResult`: Export schema metadata and every database table as CSV files inside one archive.
-- `inspectBackup(source) -> BackupInspection`: Validate archive integrity, schema compatibility, table structure and relations without modifying the database.
-- `replaceFromBackup(source) -> ImportResult`: After confirmation, atomically replace all database rows or leave the original database unchanged.
+- `exportBackup(destination) -> ExportResult`: Export every database table as CSV files plus a checksummed manifest inside one ZIP archive. Return the written path and exported table count.
+- `inspectBackup(source) -> BackupInspection`: Validate archive format, checksums, schema version, table structure and values without modifying the database. Return source path, schema version, creation timestamp and row counts by table.
+- `replaceFromBackup(source) -> ImportResult`: Validate and atomically replace all database rows, or leave the original database unchanged on failure. Return imported row counts by table.
