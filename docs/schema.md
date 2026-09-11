@@ -4,7 +4,9 @@
 
 - Database: SQLite with `PRAGMA foreign_keys = ON`.
 - ID fields use application-generated UUID strings.
-- Dates use ISO 8601 `YYYY-MM-DD`; timestamps use UTC ISO 8601 strings; snapshot months use `YYYY-MM`.
+- Calendar dates use `YYYY-MM-DD`. User transaction times use `YYYY-MM-DD HH:mm` (24-hour clock) in the fixed `Asia/Taipei` timezone. System timestamps (UPDATED_AT, CAPTURED_AT and quote/retrieval times) use UTC ISO 8601 strings.
+- All business dates, Monday–Sunday week boundaries and archive dates are determined in Asia/Taipei, independent of device timezone.
+- Monetary calculations use exact integer/rational arithmetic and round to the currency's smallest stored unit using nearest rounding, with ties away from zero (四捨五入). Round gross stock trade amounts before adding/subtracting fees; round allocated costs without first rounding allocation ratios. Final disposals absorb remaining cost exactly.
 - Currency codes use ISO 4217 uppercase strings. The base currency is fixed to `TWD` in the first version.
 - Field names omit scaling suffixes (for example, `FEE`, `RATE`, `QUANTITY`); storage multipliers are defined in an application constant lookup table, not a database table or per-row field.
 - Money uses scaled `INTEGER` values: stored value = amount × `MONEY_MULTIPLIER[currencyCode]`.
@@ -34,7 +36,7 @@
 Rules:
 
 - `NAME` cannot be blank and `SORT_ORDER` cannot be negative.
-- A category referenced by an account cannot be deleted until those accounts are atomically reassigned.
+- A category referenced by any archived account cannot be deleted. Otherwise, referenced active accounts must be atomically reassigned before deletion; no operation may edit an archived account.
 - At least one category must always remain.
 
 ## ACCOUNTS
@@ -48,7 +50,7 @@ Rules:
 - INITIAL_COST (INTEGER NOT NULL): Initial cost in account currency × the currency multiplier; fixed to 0 for STOCK accounts.
 - INITIAL_VALUE (INTEGER NOT NULL): Initial value in account currency × the currency multiplier; fixed to 0 for STOCK accounts.
 - NOTE (TEXT NULL): Optional user note.
-- IS_ARCHIVED (INTEGER NOT NULL): Current archive state. Archived accounts keep all relations but contribute zero from the archive month onward.
+- IS_ARCHIVED (INTEGER NOT NULL): Current archive state. Archived accounts keep all relations but contribute zero from the archive date onward.
 - UPDATED_AT (TEXT NOT NULL): UTC timestamp set on creation and refreshed on each modification.
 
 Rules:
@@ -60,10 +62,11 @@ Rules:
 - Changing a default funding account affects only new transactions; each transaction stores its actual account relation.
 - Accounts are never deleted. `ACCOUNT_TYPE` cannot be updated after insertion, even when the account has no financial history. Existing financial history also prevents changing currency.
 - Initial values form the account opening baseline before its transaction history; UPDATED_AT changes do not change when that baseline applies.
+- Active GENERAL and INVESTMENT accounts may edit initial values. Replay and validate the entire affected transaction history atomically; reject invalid changes, including subsequent overselling. Existing snapshots remain unchanged. STOCK initial values remain zero.
 - STOCK accounts require INITIAL_COST = 0 and INITIAL_VALUE = 0: enforce CHECK (ACCOUNT_TYPE <> 'STOCK' OR (INITIAL_COST = 0 AND INITIAL_VALUE = 0)). Apply the same rule on creation and backup import. Stock holdings and cost originate from stock transactions, not opening amounts.
 - Negative initial values are valid for non-STOCK accounts; negative general-account balances are valid.
-- While `IS_ARCHIVED = 1`, the account cannot be edited; its `UPDATED_AT` therefore identifies the archive time. For monthly reports, convert it to the archive month and count the account as zero from that month onward.
-- Reactivation sets `IS_ARCHIVED = 0` and refreshes `UPDATED_AT`. Archive intervals are not historical data: after reactivation, treat the account as active for all historical months and calculate them from snapshots normally.
+- While `IS_ARCHIVED = 1`, the account cannot be edited; its `UPDATED_AT` therefore identifies the archive time. For historical reports, convert it to the Asia/Taipei calendar date and count the account as zero from that date onward.
+- Reactivation sets `IS_ARCHIVED = 0` and refreshes `UPDATED_AT`. Archive intervals are not historical data: after reactivation, treat the account as active for all historical dates and calculate them from snapshots normally.
 
 ## SECURITIES
 
@@ -84,12 +87,16 @@ Rules:
 
 - ID (TEXT PRIMARY KEY): Stable economic-event UUID shared by every view projection.
 - KIND (TEXT NOT NULL): One of `STOCK_BUY`, `STOCK_SELL`, `STOCK_DIVIDEND`, `ACCOUNT_TRANSFER`, `ACCOUNT_INCOME`, `ACCOUNT_EXPENSE`, `INVESTMENT_BUY`, `INVESTMENT_SELL`, `INVESTMENT_INTEREST`, `INVESTMENT_PNL_ADJUSTMENT`.
-- OCCURRED_ON (TEXT NOT NULL): User-entered event date as `YYYY-MM-DD`.
+- OCCURRED_AT (TEXT NOT NULL): User-entered transaction time as `YYYY-MM-DD HH:mm`, interpreted in Asia/Taipei; minute precision, no seconds.
+- ENTRY_ORDER (INTEGER NOT NULL UNIQUE): System-assigned positive insertion sequence, allocated atomically; immutable on edits and preserved in backup/restore. It is not a timestamp or user-editable field.
 - NOTE (TEXT NULL): Optional user note.
 - UPDATED_AT (TEXT NOT NULL): UTC timestamp set on creation and refreshed on each modification.
 
 Rules:
 
+- New forms default to the current Taipei minute; users may change it. Reject future transaction times for creation and edits; scheduled or pending transactions are out of scope.
+- Replay events in ascending `(OCCURRED_AT, ENTRY_ORDER)` order; same-minute trades use insertion order. Edits retain ENTRY_ORDER, including date/time edits. Allocate new orders after the greatest retained order, including after restore; never use UPDATED_AT or random UUID order to break ties.
+- Reject creation, editing or deletion if any participating account is archived. For edits, check accounts referenced both before and after the change; reactivation is required first.
 - Exactly one matching subtype row must exist in either `STOCK_TRANSACTIONS` or `ACCOUNT_TRANSACTIONS`.
 - Editing or deleting an event and all of its effects is one SQLite transaction.
 - Deleting an event removes its subtype row; derived balances, positions and FIFO results are recalculated.
@@ -120,7 +127,7 @@ Rules:
 - Sale realized profit = net proceeds − disposed FIFO cost. Remaining unrealized profit = remaining market value − remaining FIFO cost.
 - Sale quantity cannot exceed holdings. Funding-account balances may be negative.
 - Dividend does not change holding quantity, cost or stock-account value.
-- Editing/deleting events revalidates subsequent FIFO results atomically; monthly snapshots remain unchanged.
+- Editing/deleting events revalidates subsequent FIFO results atomically; weekly snapshots remain unchanged.
 
 ## ACCOUNT_TRANSACTIONS
 
@@ -151,7 +158,7 @@ Rules:
 - Remaining cost = C − disposed cost; remaining value = V − AMOUNT; remaining unrealized profit = remaining value − remaining cost. FEE reduces funding receipt and realized profit, not the value removed from the investment.
 - Require V > 0 and 0 < AMOUNT <= V. When AMOUNT = V, dispose of all remaining C exactly so that remaining cost and value both become zero, absorbing any prior allocation rounding remainder.
 - Example in display units: C = 1,000, V = 1,200, AMOUNT = 600, FEE = 10 gives disposed cost 500, funding receipt 590, realized profit 90, remaining cost 500, remaining value 600 and unrealized profit 100.
-- Disposed cost, sale proportion and profit are derived, not separate stored fields. Editing/deleting earlier events must revalidate and recalculate later manual sales atomically; saved monthly snapshots remain unchanged.
+- Disposed cost, sale proportion and profit are derived, not separate stored fields. Editing/deleting earlier events must revalidate and recalculate later manual sales atomically; saved weekly snapshots remain unchanged.
 - Interest: AMOUNT is both the funding receipt and investment realized income. No fee; investment cost/value are unchanged.
 - Value adjustment changes investment value and unrealized profit only; no cash flow or fee.
 - Fields omitted from a kind below must be null. Applicable FEE fields are required and nonnegative. AMOUNT and actual cash amounts must be positive; sell FEE cannot exceed AMOUNT. General-account balances may be negative.
@@ -159,7 +166,7 @@ Rules:
 
 ### Fields used by each KIND
 
-All kinds use TRANSACTIONS.ID, KIND, OCCURRED_ON, UPDATED_AT and optional NOTE. Each subtype uses TRANSACTION_ID.
+All kinds use TRANSACTIONS.ID, KIND, OCCURRED_AT, ENTRY_ORDER, UPDATED_AT and optional NOTE. Each subtype uses TRANSACTION_ID.
 
 | KIND | Subtype | Additional fields used |
 |---|---|---|
@@ -201,11 +208,12 @@ Rules:
 - `TWD` uses an implicit rate of `1.00` and does not require a row.
 - A failed refresh never replaces the last successful row.
 
-## ACCOUNT_MONTHLY_SNAPSHOTS
+## ACCOUNT_WEEKLY_SNAPSHOTS
 
 - ID (TEXT PRIMARY KEY): Stable snapshot UUID.
 - ACCOUNT_ID (TEXT NOT NULL REFERENCES ACCOUNTS.ID): Account represented by this snapshot.
-- SNAPSHOT_MONTH (TEXT NOT NULL): Calendar month as `YYYY-MM`.
+- SNAPSHOT_DATE (TEXT NOT NULL): Valuation date as `YYYY-MM-DD` in Asia/Taipei, including year, month and day; not merely a week or month label.
+- WEEK_START_DATE (TEXT NOT NULL): Monday date of the week containing SNAPSHOT_DATE, derived and validated by the application for uniqueness; not an independently editable date.
 - ACCOUNT_CURRENCY_CODE (TEXT NOT NULL): Account currency at capture time.
 - COST (INTEGER NOT NULL): Cost in account currency × the currency multiplier at capture time.
 - VALUE (INTEGER NOT NULL): Value in account currency × the currency multiplier at capture time.
@@ -218,12 +226,15 @@ Rules:
 
 Rules:
 
-- `(ACCOUNT_ID, SNAPSHOT_MONTH)` is unique.
+- `(ACCOUNT_ID, WEEK_START_DATE)` is unique, enforcing at most one snapshot per account per Monday–Sunday week. Validate WEEK_START_DATE against SNAPSHOT_DATE on insert and import.
+- For each active account independently, create its snapshot on the first successful valuation in the week with all required prices/rates successfully refreshed. An account needing no external prices/rates has no market-data prerequisite. Do not overwrite a snapshot already present for that week.
+- Missing or failed required market data skips only the affected account; retry after a successful update within that week. Last successful cached prices/rates may still support current display but failed refreshes must not generate a new snapshot. No fabricated backfill for missed weeks.
 - Snapshot values are immutable historical facts and are never updated by later prices or exchange rates.
-- For target month D, each account uses its snapshot with the greatest `SNAPSHOT_MONTH <= D`; when no such snapshot exists, its cost, value and realized profit are all zero.
-- A report month does not require snapshots for every account and has no complete/incomplete state. A prior snapshot carries forward until a later snapshot supersedes it.
-- If the account is currently archived, it contributes zero when D is the archive month derived from `ACCOUNTS.UPDATED_AT` or later; earlier months still use the last-snapshot rule. Retained snapshots are not deleted.
-- If the account is currently active, apply the last-snapshot rule to every month. A reactivated account is treated as historically active; previous archive intervals are intentionally not reconstructed.
+- For target date D, each account uses its snapshot with the greatest `SNAPSHOT_DATE <= D`; when no such snapshot exists, its cost, value and realized profit are all zero.
+- A historical report date does not require snapshots for every account and has no complete/incomplete state. A prior snapshot carries forward until a later snapshot supersedes it. This differs from missing-price status in current valuations.
+- The report's “now” point is computed from current account balances/positions and latest successful market data, not from the last snapshot. Missing current valuation inputs must be explicitly reported, never replaced with zero or purchase prices.
+- If the account is currently archived, it contributes zero when D is the Asia/Taipei archive date derived from `ACCOUNTS.UPDATED_AT` or later; earlier dates still use the last-snapshot rule. Retained snapshots are not deleted.
+- If the account is currently active, apply the last-snapshot rule to every date. A reactivated account is treated as historically active; previous archive intervals are intentionally not reconstructed.
 
 ## APP_SETTINGS
 
@@ -237,15 +248,21 @@ Rules:
 ## Recommended Indexes
 
 - `ACCOUNTS(CATEGORY_ID, IS_ARCHIVED)` for asset and account filters.
-- `TRANSACTIONS(OCCURRED_ON DESC, ID)` for stable event ordering.
+- `TRANSACTIONS(OCCURRED_AT DESC, ENTRY_ORDER DESC)` for stable event ordering.
 - `STOCK_TRANSACTIONS(SECURITY_ID, STOCK_ACCOUNT_ID)` for holdings and FIFO queries.
 - `STOCK_TRANSACTIONS(STOCK_ACCOUNT_ID)` and `STOCK_TRANSACTIONS(FUNDING_ACCOUNT_ID)` for account projections.
 - `ACCOUNT_TRANSACTIONS(SOURCE_ACCOUNT_ID)` and `ACCOUNT_TRANSACTIONS(TARGET_ACCOUNT_ID)` for account histories.
-- `ACCOUNT_MONTHLY_SNAPSHOTS(SNAPSHOT_MONTH, ACCOUNT_ID)` for report trends.
+- `ACCOUNT_WEEKLY_SNAPSHOTS(SNAPSHOT_DATE, ACCOUNT_ID)` for report trends.
 
 # Data API
 
 The signatures below describe repository contracts, not concrete Dart classes. All monetary inputs and outputs carry a currency code and an integer scaled by the application currency constants. Fee inputs and outputs use one combined fee-and-tax amount only for STOCK_BUY, STOCK_SELL, INVESTMENT_BUY and INVESTMENT_SELL; all other kinds have no fee. Only general-account transfers allow differing currencies; stock security and both accounts must share one currency, and all manual investment funding accounts must match their investment account; funding-account options and submitted overrides are restricted to general accounts; list queries use stable ordering and support pagination when the result can grow without bound. All writes validate input first and commit every related effect atomically.
+
+## Shared interaction contract
+
+- On confirmation, the caller constructs input from the form and calls create/update directly. Preview is optional, read-only and never a prerequisite or a staging store. Writes re-read and validate within the database transaction; success returns TransactionId (create) or completes (update), and failure throws a typed DataApiException. Keep form values on failure.
+- Transaction lists use descending `(OCCURRED_AT, ENTRY_ORDER)` order with stable pagination; financial replay uses ascending order.
+- Missing quotes do not prevent recording trades or calculating holdings/cost. If no successful quote exists, expose missing valuation explicitly (including affected totals), not zero or the purchase price. Cached successful data is usable with its timestamps/stale status. Apply the same distinction to missing conversion rates.
 
 ## StockView
 
@@ -256,7 +273,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 ## StockDetailView
 
 - `watchStockDetail(securityId, stockAccountId?) -> StockDetail`: Observe aggregated quantity, FIFO cost, current value, realized/unrealized profit and income.
-- `listStockTransactions(securityId, stockAccountId?, kinds?, cursor?, limit) -> Page<StockTransactionItem>`: List the security's source events in descending date order.
+- `listStockTransactions(securityId, stockAccountId?, kinds?, cursor?, limit) -> Page<StockTransactionItem>`: List the security's source events in descending transaction-time and insertion order.
 
 ## StockTransactionView
 
@@ -291,7 +308,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 - `getAccountEditor(accountId?) -> AccountEditorData`: Load categories, supported currencies, the three account-type options and existing account data.
 - `createAccount(input) -> AccountId`: Create a general account with initial cost and value.
-- `updateAccount(accountId, input) -> void`: Update permitted metadata; the input never accepts `accountType`.
+- `updateAccount(accountId, input) -> void`: Update permitted metadata and initial values with full-history validation; reject archived accounts. The input never accepts `accountType`.
 - `archiveAccount(accountId) -> void`: Archive when no active funding dependency prevents it.
 - `reactivateAccount(accountId) -> void`: Restore the same account and history.
 
@@ -299,7 +316,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 - `getInvestmentAccountEditor(accountId?, createAccountType?) -> InvestmentAccountEditorData`: For creation, accept the selected STOCK or INVESTMENT type; for editing, derive the immutable type from `accountId`. Load categories and same-currency GENERAL funding accounts.
 - `createInvestmentAccount(input) -> AccountId`: Create the explicitly selected STOCK or INVESTMENT account type with a required same-currency GENERAL funding account.
-- `updateInvestmentAccount(accountId, input) -> void`: Update permitted STOCK/INVESTMENT metadata and the default for future settlements only; the input never accepts `accountType`.
+- `updateInvestmentAccount(accountId, input) -> void`: Update permitted STOCK/INVESTMENT metadata and the default for future settlements only; allow INVESTMENT initial-value edits with full-history validation, keep STOCK initial values zero, and reject archived accounts. The input never accepts `accountType`.
 - `archiveAccount(accountId) -> void`: Use the shared account archive contract.
 - `reactivateAccount(accountId) -> void`: Use the shared account reactivation contract.
 
@@ -307,7 +324,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 
 - `getCurrentAllocation() -> AllocationReport`: Derive current TWD value and percentage by current category without double-counting positions.
 - `getCurrentCostValueComparison(groupBy) -> CostValueReport`: Compare current cost and value by category or account.
-- `getMonthlyTrend(period) -> MonthlyTrendReport`: For each month and account, carry forward the latest snapshot at or before that month, use zero when absent, apply the current archive rule, then aggregate TWD cost, value and realized profit.
+- `getHistoricalTrend(period) -> HistoricalTrendReport`: Return dated historical points from weekly account snapshots, carrying forward each account's latest snapshot at or before each date, using zero when absent and applying the archive-date rule. Include a separately identified “now” point calculated from current account totals, not snapshots; expose missing valuation inputs. Period options remain 3M, 6M, 1Y, 3Y and all.
 
 ## SettingView
 
@@ -321,7 +338,7 @@ The signatures below describe repository contracts, not concrete Dart classes. A
 - `createCategory(input) -> CategoryId`: Create a category with a stable ID.
 - `updateCategory(categoryId, input) -> void`: Rename or recolor without changing historical financial data.
 - `reorderCategories(orderedCategoryIds) -> void`: Atomically replace category display order.
-- `deleteCategory(categoryId, replacementCategoryId?) -> void`: Atomically reassign all current accounts when required, then delete; never leave zero categories.
+- `deleteCategory(categoryId, replacementCategoryId?) -> void`: Reject if any archived account references the category; otherwise atomically reassign active accounts when required, then delete. Never leave zero categories.
 
 ## AccountManagerView
 
