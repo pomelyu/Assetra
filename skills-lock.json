@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "api-and-interface-design": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/api-and-interface-design/SKILL.md",
+      "computedHash": "26f5a9e7abfd332d7a2e5887cf19bddd3393f47514c379b36bf227c1f15cdec4"
+    },
     "dart-add-unit-test": {
       "source": "flutter/agent-plugins",
       "sourceType": "github",
@@ -42,6 +48,42 @@
       "sourceType": "github",
       "skillPath": "skills/flutter-setup-localization/SKILL.md",
       "computedHash": "671bf254ca8f3172b6bda5287d9e756e9fd5b49165a815f710c5b707ebaa38f8"
+    },
+    "idea-refine": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/idea-refine/SKILL.md",
+      "computedHash": "9fc0ae5d8a074872a636d22f9c6fe71e041b86cddc9fe5af90ef654f5032ec5d"
+    },
+    "incremental-implementation": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/incremental-implementation/SKILL.md",
+      "computedHash": "bd40e91eac68b83ba0204dd57b4bd35511cb900f937a7127b79f2396b2bb305d"
+    },
+    "interview-me": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/interview-me/SKILL.md",
+      "computedHash": "efded91ac7f7626239b338ce8622afeb557151b86532b632f3c9eb5b2ff9048f"
+    },
+    "planning-and-task-breakdown": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/planning-and-task-breakdown/SKILL.md",
+      "computedHash": "0dc14a1402cdabd376f2d81d2225fcb4a18ee63d58b945ff83affeb024285b8f"
+    },
+    "spec-driven-development": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/spec-driven-development/SKILL.md",
+      "computedHash": "aca026683acdae1cd8a58f335fb26e60fb5db11ae81461a6896b0bf561aacb75"
+    },
+    "test-driven-development": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/test-driven-development/SKILL.md",
+      "computedHash": "a8fef2b010af8402fd2979bdb2e5e39e5baa1ca14b5cdec366ee75df5e1dec68"
     }
   }
 }
