@@ -1,30 +1,38 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:assetra/main.dart';
 
 void main() {
-  testWidgets('計數器按鈕點擊後數值增加', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('底部導航預設顯示股市並可切換四個主要 view', (WidgetTester tester) async {
+    await tester.pumpWidget(const AssetraApp(locale: Locale('zh', 'TW')));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('股市'), findsNWidgets(2));
+    expect(find.text('資產'), findsOneWidget);
+    expect(find.text('報表'), findsOneWidget);
+    expect(find.text('設定'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    for (final tab in ['資產', '報表', '設定']) {
+      await tester.tap(find.text(tab));
+      await tester.pump();
+      expect(find.text(tab), findsNWidgets(2));
+    }
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('底部導航依 locale 顯示中文或英文並套用 fallback', (WidgetTester tester) async {
+    await tester.pumpWidget(const AssetraApp(locale: Locale('en')));
+    expect(find.text('Stock'), findsNWidgets(2));
+    expect(find.text('Asset'), findsOneWidget);
+    expect(find.text('Report'), findsOneWidget);
+    expect(find.text('Setting'), findsOneWidget);
+
+    await tester.pumpWidget(const AssetraApp(locale: Locale('zh', 'CN')));
+    expect(find.text('股市'), findsNWidgets(2));
+
+    await tester.pumpWidget(const AssetraApp(locale: Locale('yue', 'HK')));
+    expect(find.text('股市'), findsNWidgets(2));
+
+    await tester.pumpWidget(const AssetraApp(locale: Locale('ja', 'JP')));
+    expect(find.text('Stock'), findsNWidgets(2));
   });
 }

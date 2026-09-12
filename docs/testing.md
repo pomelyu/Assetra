@@ -246,4 +246,5 @@ File: `test/data/data_api_integration_test.dart`
 
 File: `test/ui_smoke_test.dart`
 
-- [x] 計數器按鈕點擊後數值增加
+- [x] 底部導航預設顯示股市並可切換四個主要 view
+- [x] 底部導航依 locale 顯示中文或英文並套用 fallback: `zh_*` 與 `yue_*` 使用繁中，其他不支援 locale 使用英文。
