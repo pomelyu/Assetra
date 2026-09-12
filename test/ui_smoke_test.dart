@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:assetra/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('計數器按鈕點擊後數值增加', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
 

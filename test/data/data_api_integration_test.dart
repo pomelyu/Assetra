@@ -6,16 +6,18 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late Directory directory;
   late PortfolioDataApi api;
+  late DateTime testNow;
   var biometricCalls = 0;
   var refreshCalls = 0;
 
   setUp(() async {
-    directory = Directory.systemTemp.createTempSync('assetra-public-api-');
+    directory = Directory.systemTemp.createTempSync('assetra-test-');
+    testNow = DateTime.utc(2030, 1, 1);
     biometricCalls = 0;
     refreshCalls = 0;
     api = await PortfolioDataApi.open(
       databasePath: '${directory.path}/db.sqlite',
-      now: () => DateTime.utc(2030, 1, 1),
+      now: () => testNow,
       authenticateBiometric: () async {
         biometricCalls++;
         return true;
@@ -36,7 +38,7 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
-  test('category settings market refresh and account lifecycle APIs', () async {
+  test('分類、設定、行情更新與帳戶生命週期 API 可共同運作', () async {
     final secondCategory = await api.createCategory(
       const CreateCategoryInput(name: 'Growth', colorArgb: 0xff00ff00),
     );
@@ -164,7 +166,7 @@ void main() {
     ]);
   });
 
-  test('stock mutation preview form query and quote APIs', () async {
+  test('股票交易預覽、表單、查詢與行情 API 可共同運作', () async {
     final cash = await api.createAccount(
       const CreateAccountInput(
         name: 'Cash',
@@ -241,7 +243,7 @@ void main() {
     expect((await api.listStockTransactions(security)).items, isEmpty);
   });
 
-  test('account transaction mutation preview form and deletion APIs', () async {
+  test('帳戶交易預覽、表單、修改與刪除 API 可共同運作', () async {
     final cash = await api.createAccount(
       const CreateAccountInput(
         name: 'Cash',

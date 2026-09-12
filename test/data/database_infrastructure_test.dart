@@ -4,7 +4,7 @@ import 'package:assetra/data/src/database/portfolio_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('schema persists, enforces foreign keys and rolls back both rows', () {
+  test('資料庫 schema 可持久化並強制外鍵及交易回滾', () {
     final directory = Directory.systemTemp.createTempSync('assetra-db-');
     final path = '${directory.path}/test.sqlite';
     final db = PortfolioDatabase.open(path);

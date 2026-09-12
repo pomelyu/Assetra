@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('application source imports data layer only through public barrel', () {
+  test('應用程式只能透過公開 barrel 匯入資料層', () {
     final violations = <String>[];
     for (final entity
         in Directory('lib')
@@ -26,7 +26,7 @@ void main() {
     );
   });
 
-  test('every public data API function documents its input and output', () {
+  test('所有公開 Data API 函式都有輸入輸出文件', () {
     final source = File('lib/data/portfolio_data_api.dart').readAsStringSync();
     final publicFunctions = RegExp(
       r'^  (?:static )?Future<[^\n]+> [a-zA-Z]',
