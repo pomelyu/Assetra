@@ -2,5 +2,8 @@
   "stock": "股市",
   "asset": "資產",
   "report": "報表",
-  "setting": "設定"
+  "setting": "設定",
+  "allTransactions": "全部",
+  "incomingTransactions": "入帳 (+)",
+  "outgoingTransactions": "出帳 (-)"
 }

@@ -122,6 +122,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Setting'**
   String get setting;
+
+  /// No description provided for @allTransactions.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get allTransactions;
+
+  /// No description provided for @incomingTransactions.
+  ///
+  /// In en, this message translates to:
+  /// **'In (+)'**
+  String get incomingTransactions;
+
+  /// No description provided for @outgoingTransactions.
+  ///
+  /// In en, this message translates to:
+  /// **'Out (-)'**
+  String get outgoingTransactions;
 }
 
 class _AppLocalizationsDelegate

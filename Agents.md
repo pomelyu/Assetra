@@ -105,5 +105,30 @@
   - 如果有關，且為 [x]。新增測試，並說明為何測試沒有覆蓋。通過後將項目標記完成 [x]
   - 如果無關，新增測試，通過後將項目標記完成 [x]
 - 對於 UI 元件的具體放置位置不需要測試
+- UI 只需要 routing 的測試
 
 ---
+
+## 6. Flutter iOS development
+
+The iOS app is launched separately using `flutter run` by the developer.
+Do not launch or terminate the app through the iOS Simulator MCP.
+
+When working on Flutter UI:
+
+1. Use `flutter attach` to connect to the currently running app. If fails, stop and inform the user immediately.
+2. Keep the Flutter session alive while making changes.
+3. After modifying Dart code, use Flutter hot reload (`r`) instead of
+   restarting or relaunching the app.
+4. Use the iOS Simulator MCP to inspect the rendered UI, take screenshots,
+   and interact with the app.
+5. Compare the rendered UI with the provided reference image.
+6. If the reference image contradicts to the spec or what user specified, follow the spec or user's instruction
+7. Repeat:
+   inspect → modify code → hot reload → inspect
+   until the result matches the reference.
+
+Use hot restart (`R`) only when hot reload cannot apply the change.
+
+The Flutter CLI owns the application development lifecycle.
+The iOS Simulator MCP is only for UI inspection and interaction.

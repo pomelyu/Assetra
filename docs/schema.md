@@ -38,6 +38,7 @@ Rules:
 
 - `NAME` cannot be blank and `SORT_ORDER` cannot be negative.
 - Category names are unique after trimming and compared case-insensitively by the Data API.
+- A new database seeds three ordinary, editable categories in this order: `default` / 「未分類」, `deposit` / 「存款」, and `investment` / 「投資」. They are not protected system categories.
 - A category referenced by any archived account cannot be deleted. Otherwise, referenced active accounts must be atomically reassigned before deletion; no operation may edit an archived account.
 - At least one category must always remain.
 
@@ -319,7 +320,7 @@ Public numeric precision:
 
 ## AccountEditView
 
-- `getAccountEditor(accountId?) -> AccountEditorData`: Load categories and optional existing account data. Supported currencies and account-type options are application constants/UI choices, not fields in this DTO.
+- `getAccountEditor(accountId?) -> AccountEditorData`: Load categories and optional existing GENERAL account data. For an existing account, the DTO separately includes the saved `initialCost`, `initialValue`, and `note`; these are editable source values and must not be inferred from the calculated current summary. Supported currencies and account-type options are application constants/UI choices, not fields in this DTO.
 - `createAccount(input) -> AccountId`: Create a general account with initial cost and value.
 - `updateAccount(accountId, input) -> void`: Update permitted metadata and initial values with full-history validation; reject archived accounts. The input never accepts `accountType`.
 - `archiveAccount(accountId) -> void`: Archive when no active funding dependency prevents it.

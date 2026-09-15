@@ -42,6 +42,8 @@ dependencies:
   archive: ^4.2.0
   crypto: ^3.0.7
   csv: ^8.0.0
+  path_provider: ^2.1.5
+  forui: ^0.26.0
 
 dev_dependencies:
   flutter_test:

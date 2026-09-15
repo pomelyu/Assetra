@@ -25,6 +25,14 @@ class PortfolioDatabase {
         [now],
       );
       database.execute(
+        "INSERT OR IGNORE INTO CATEGORIES(ID,NAME,COLOR_ARGB,SORT_ORDER,UPDATED_AT) VALUES('deposit','存款',4283215696,1,?)",
+        [now],
+      );
+      database.execute(
+        "INSERT OR IGNORE INTO CATEGORIES(ID,NAME,COLOR_ARGB,SORT_ORDER,UPDATED_AT) VALUES('investment','投資',4280391411,2,?)",
+        [now],
+      );
+      database.execute(
         "INSERT OR IGNORE INTO APP_SETTINGS(ID,THEME_MODE,LANGUAGE_CODE,MARKET_UPDATE_MODE,IS_BIOMETRIC_LOCK_ENABLED,UPDATED_AT) VALUES(1,'SYSTEM','zh-TW','MANUAL',0,?)",
         [now],
       );

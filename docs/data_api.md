@@ -130,7 +130,7 @@ final detail = await api.getAccountDetail(accountB);
 | 帳戶總覽／明細 | `getAssetOverview`、`listAssetAccounts`、`getAccountDetail`、`listAccountTransactions` |
 | 一般／投資交易 | `getAccountTransactionForm`、`createAccountTransaction`、`updateAccountTransaction`、`deleteAccountTransaction` |
 | 可選交易估算 | `previewStockTransaction`、`previewAccountTransaction`；不寫入，不是 create/update 的必要前置操作 |
-| 帳戶編輯／管理 | `getAccountEditor`、`createAccount`、`updateAccount`、`getInvestmentAccountEditor`、`createInvestmentAccount`、`updateInvestmentAccount`、`listManagedAccounts`、`archiveAccount`、`reactivateAccount` |
+| 帳戶編輯／管理 | `getAccountEditor`（含原始期初成本、期初價值與備註）、`createAccount`、`updateAccount`、`getInvestmentAccountEditor`、`createInvestmentAccount`、`updateInvestmentAccount`、`listManagedAccounts`、`archiveAccount`、`reactivateAccount` |
 | 分類 | `listCategories`、`createCategory`、`updateCategory`、`reorderCategories`、`deleteCategory` |
 | 報表 | `getCurrentAllocation`、`getCurrentCostValueComparison`、`getHistoricalTrend` |
 | 設定 | `getAppSettings`、`updateAppSettings`、`setBiometricLockEnabled` |

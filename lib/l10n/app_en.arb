@@ -2,5 +2,8 @@
   "stock": "Stock",
   "asset": "Asset",
   "report": "Report",
-  "setting": "Setting"
+  "setting": "Setting",
+  "allTransactions": "All",
+  "incomingTransactions": "In (+)",
+  "outgoingTransactions": "Out (-)"
 }

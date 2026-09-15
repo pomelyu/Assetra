@@ -20,6 +20,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get setting => '設定';
+
+  @override
+  String get allTransactions => '全部';
+
+  @override
+  String get incomingTransactions => '入帳 (+)';
+
+  @override
+  String get outgoingTransactions => '出帳 (-)';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -37,4 +46,13 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get setting => '設定';
+
+  @override
+  String get allTransactions => '全部';
+
+  @override
+  String get incomingTransactions => '入帳 (+)';
+
+  @override
+  String get outgoingTransactions => '出帳 (-)';
 }

@@ -46,11 +46,18 @@ void main() {
       secondCategory,
       const UpdateCategoryInput(name: 'Long-term', colorArgb: 0xff112233),
     );
-    await api.reorderCategories([secondCategory, 'default']);
+    await api.reorderCategories([
+      secondCategory,
+      'default',
+      'deposit',
+      'investment',
+    ]);
     final categories = await api.listCategories();
     expect(categories.map((category) => category.id), [
       secondCategory,
       'default',
+      'deposit',
+      'investment',
     ]);
     expect(categories.first.name, 'Long-term');
 
@@ -163,6 +170,8 @@ void main() {
     await api.deleteCategory(secondCategory);
     expect((await api.listCategories()).map((category) => category.id), [
       'default',
+      'deposit',
+      'investment',
     ]);
   });
 

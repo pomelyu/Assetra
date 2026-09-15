@@ -456,7 +456,15 @@ class AccountTransactionFormData {
 class AccountEditorData {
   final AccountDetail? existing;
   final List<CategorySummary> categories;
-  const AccountEditorData({this.existing, required this.categories});
+  final Money? initialCost, initialValue;
+  final String? note;
+  const AccountEditorData({
+    this.existing,
+    required this.categories,
+    this.initialCost,
+    this.initialValue,
+    this.note,
+  });
 }
 
 class InvestmentAccountEditorData extends AccountEditorData {
@@ -465,6 +473,9 @@ class InvestmentAccountEditorData extends AccountEditorData {
   const InvestmentAccountEditorData({
     super.existing,
     required super.categories,
+    super.initialCost,
+    super.initialValue,
+    super.note,
     this.createAccountType,
     required this.fundingAccounts,
   });

@@ -10,7 +10,10 @@ void main() {
     final db = PortfolioDatabase.open(path);
     try {
       expect(db.rows('SCHEMA_METADATA').single['VALUE'], '1');
-      expect(db.rows('CATEGORIES'), hasLength(1));
+      expect(
+        db.rows('CATEGORIES').map((row) => row['NAME']),
+        ['未分類', '存款', '投資'],
+      );
       expect(
         () => db.atomic(() {
           db.insert('TRANSACTIONS', {

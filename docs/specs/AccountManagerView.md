@@ -14,7 +14,7 @@
 
 ## Actions and Routing
 
-- 新增帳戶 → `AccountEditView` 選擇類型；股票／投資帳戶使用 `AccountEditView-invest` 表單狀態。
+- 右下角「＋」新增帳戶 → `AccountEditView` 選擇類型；股票／投資帳戶使用 `AccountEditView-invest` 表單狀態。
 - 編輯一般帳戶 → `AccountEditView`；編輯股票／投資帳戶 → `AccountEditView-invest`。
 - 帳戶類型只在建立時選擇；管理與編輯流程均不提供類型變更。
 - 封存前顯示影響並要求確認；已封存帳戶可重新啟用。
@@ -30,7 +30,7 @@
 
 ## States
 
-- 無帳戶時顯示新增入口；只有封存帳戶時仍可切換查看。
+- 無帳戶時顯示「尚未建立資料」與新增入口；只有封存帳戶時仍可切換查看。
 - 封存或重新啟用失敗時維持原狀態並顯示原因。
 
 ## Acceptance Criteria

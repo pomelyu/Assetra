@@ -2517,7 +2517,7 @@ class PortfolioDataApi {
     }
   }
 
-  /// Loads categories and optional existing data for the general-account editor.
+  /// Loads categories and saved editable values for the general-account editor.
   ///
   /// Parameters
   /// ----------
@@ -2527,17 +2527,35 @@ class PortfolioDataApi {
   /// Returns
   /// -------
   /// `Future<AccountEditorData>`
-  ///     Editor categories and optional current account detail.
+  ///     Editor categories, calculated account detail, and saved opening values.
   ///
   /// Raises
   /// ------
   /// `DataApiException`
   ///     If the requested account does not exist.
-  Future<AccountEditorData> getAccountEditor({String? accountId}) async =>
-      AccountEditorData(
-        existing: accountId == null ? null : _calculateAccount(accountId),
-        categories: await listCategories(),
-      );
+  Future<AccountEditorData> getAccountEditor({String? accountId}) async {
+    final row = accountId == null ? null : _account(accountId);
+    if (row != null && _accountType(row) != AccountType.general) {
+      _fail('General editor requires GENERAL account');
+    }
+    return AccountEditorData(
+      existing: accountId == null ? null : _calculateAccount(accountId),
+      categories: await listCategories(),
+      initialCost: row == null
+          ? null
+          : Money.fromScaledUnits(
+              currencyCode: row['CURRENCY_CODE'] as String,
+              units: row['INITIAL_COST'] as int,
+            ),
+      initialValue: row == null
+          ? null
+          : Money.fromScaledUnits(
+              currencyCode: row['CURRENCY_CODE'] as String,
+              units: row['INITIAL_VALUE'] as int,
+            ),
+      note: row?['NOTE'] as String?,
+    );
+  }
 
   /// Loads data for the stock or investment account editor.
   ///
@@ -2576,6 +2594,19 @@ class PortfolioDataApi {
       categories: await listCategories(),
       createAccountType: createAccountType,
       fundingAccounts: funding,
+      initialCost: existing == null
+          ? null
+          : Money.fromScaledUnits(
+              currencyCode: existing.currencyCode,
+              units: _account(existing.id)['INITIAL_COST'] as int,
+            ),
+      initialValue: existing == null
+          ? null
+          : Money.fromScaledUnits(
+              currencyCode: existing.currencyCode,
+              units: _account(existing.id)['INITIAL_VALUE'] as int,
+            ),
+      note: existing == null ? null : _account(existing.id)['NOTE'] as String?,
     );
   }
 

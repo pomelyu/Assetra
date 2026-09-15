@@ -248,3 +248,11 @@ File: `test/ui_smoke_test.dart`
 
 - [x] 底部導航預設顯示股市並可切換四個主要 view
 - [x] 底部導航依 locale 顯示中文或英文並套用 fallback: `zh_*` 與 `yue_*` 使用繁中，其他不支援 locale 使用英文。
+
+## UI Routing
+
+File: `test/ui_routing_test.dart`
+
+- [x] 資產交易 FAB 與帳戶管理可導向正確編輯頁
+- [x] 資產帳戶可進入詳情，再進入一般帳戶交易編輯頁
+- [x] 從帳戶詳情新增交易時，收入目標、支出來源與轉帳來源會帶入當前帳戶
