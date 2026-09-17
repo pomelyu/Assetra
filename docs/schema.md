@@ -38,7 +38,7 @@ Rules:
 
 - `NAME` cannot be blank and `SORT_ORDER` cannot be negative.
 - Category names are unique after trimming and compared case-insensitively by the Data API.
-- A new database seeds three ordinary, editable categories in this order: `default` / 「未分類」, `deposit` / 「存款」, and `investment` / 「投資」. They are not protected system categories.
+- A new database seeds three categories in this order: `default` / 「未分類」, `deposit` / 「存款」, and `investment` / 「投資」. `deposit` and `investment` are editable like user-created categories. `default` is a protected fallback category: it cannot be renamed, recolored, or deleted, but it may be reordered and used as an account-reassignment target.
 - A category referenced by any archived account cannot be deleted. Otherwise, referenced active accounts must be atomically reassigned before deletion; no operation may edit an archived account.
 - At least one category must always remain.
 
@@ -357,9 +357,9 @@ Public numeric precision:
 
 - `listCategories() -> List<CategorySummary>`: Fetch categories in user-defined order with current account usage counts.
 - `createCategory(input) -> CategoryId`: Create a category with a stable ID.
-- `updateCategory(categoryId, input) -> void`: Rename or recolor without changing historical financial data.
+- `updateCategory(categoryId, input) -> void`: Rename or recolor without changing historical financial data; reject the protected `default` category.
 - `reorderCategories(orderedCategoryIds) -> void`: Atomically replace category display order.
-- `deleteCategory(categoryId, replacementCategoryId?) -> void`: Reject if any archived account references the category; otherwise atomically reassign active accounts when required, then delete. Never leave zero categories.
+- `deleteCategory(categoryId, replacementCategoryId?) -> void`: Reject the protected `default` category or any category referenced by an archived account; otherwise atomically reassign active accounts when required, then delete. Never leave zero categories.
 
 ## AccountManagerView
 

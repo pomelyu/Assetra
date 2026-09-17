@@ -40,10 +40,15 @@
   - [SettingView](./docs/specs/SettingView.md)
     - [CategoryManagerView](./docs/specs/CategoryManagerView.md)
     - [AccountManagerView](./docs/specs/AccountManagerView.md)
+      - 新增一般帳戶 → [AccountEditView](./docs/specs/AccountEditView.md)
+      - 新增股票／投資帳戶 → [AccountEditView-invest](./docs/specs/AccountEditView-invest.md)
     - [DataManagerView](./docs/specs/DataManagerView.md)
 
 ### 2.2 General specs
 - app 介面提供多國語言，預設為中文
+- AssetView 不提供新增帳戶；右下「＋」專用於新增交易並進入 AccountTransactionView。帳戶由 AccountManagerView 新增，並依帳戶類型進入 AccountEditView 或 AccountEditView-invest。
+- AssetView、AccountTransactionView、AccountManagerView 與 CategoryManagerView 沒有可顯示資料時，統一顯示「尚未建立資料」。
+- 新資料庫預設建立「未分類」、「存款」與「投資」分類；「存款」與「投資」可編輯，「未分類」不可編輯。
 - 第一版基礎幣別固定為 TWD；原幣資料與換算資料的語意必須分開。
 - 帳戶類型為一般（GENERAL）、股票（STOCK）、投資（INVESTMENT），與報表分類獨立。
 - 帳戶類型只在建立帳戶時選擇；帳戶建立後不可變更類型。
