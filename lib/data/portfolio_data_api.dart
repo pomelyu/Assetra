@@ -158,6 +158,9 @@ class PortfolioDataApi {
     if (input.accountType == AccountType.general) {
       _fail('Investment editor accepts STOCK or INVESTMENT');
     }
+    if (input.fundingAccountId.trim().isEmpty) {
+      _fail('Funding account is required');
+    }
     final funding = _account(input.fundingAccountId);
     _requireActive(funding);
     if (_accountType(funding) != AccountType.general ||
@@ -258,9 +261,10 @@ class PortfolioDataApi {
       }
       String? funding;
       if (type != AccountType.general) {
-        funding =
-            input.fundingAccountId ?? old['FUNDING_ACCOUNT_ID'] as String?;
-        if (funding == null) _fail('Funding account is required');
+        funding = input.fundingAccountId;
+        if (funding == null || funding.trim().isEmpty) {
+          _fail('Funding account is required');
+        }
         final row = _account(funding);
         _requireActive(row);
         if (_accountType(row) != AccountType.general ||
@@ -1731,6 +1735,7 @@ class PortfolioDataApi {
       name: a['NAME'] as String,
       categoryId: a['CATEGORY_ID'] as String,
       currencyCode: currency,
+      fundingAccountId: a['FUNDING_ACCOUNT_ID'] as String?,
       accountType: type,
       cost: Money.fromScaledUnits(currencyCode: currency, units: cost),
       value: complete

@@ -262,6 +262,7 @@ class InvestmentPnlAdjustmentInput extends AccountTransactionInput {
 
 class AccountDetail {
   final String id, name, categoryId, currencyCode;
+  final String? fundingAccountId;
   final AccountType accountType;
   final Money cost;
   final Money? value;
@@ -272,6 +273,7 @@ class AccountDetail {
     required this.name,
     required this.categoryId,
     required this.currencyCode,
+    required this.fundingAccountId,
     required this.accountType,
     required this.cost,
     required this.value,
