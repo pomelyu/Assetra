@@ -32,7 +32,7 @@ class SettingView extends StatelessWidget {
             icon: Icons.person_outline_rounded,
             iconBackground: const Color(0xffEEF2F7),
             title: '帳戶管理',
-            subtitle: '管理一般帳戶',
+            subtitle: '管理一般與投資帳戶',
             onTap: onManageAccounts,
           ),
           const SizedBox(height: 24),

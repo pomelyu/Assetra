@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'data/data.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'ui/views/account_edit_view.dart';
+import 'ui/views/account_edit_investment_view.dart';
 import 'ui/views/account_detail_view.dart';
 import 'ui/views/account_manager_view.dart';
 import 'ui/views/account_transaction_view.dart';
@@ -181,12 +182,22 @@ class _AppShellState extends State<_AppShell> {
                         );
                       },
                       onEditAccount: () async {
+                        final detail = await widget.api!.getAccountDetail(
+                          accountId,
+                        );
+                        if (!context.mounted) return;
                         await Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
-                            builder: (BuildContext context) => AccountEditView(
-                              api: widget.api,
-                              accountId: accountId,
-                            ),
+                            builder: (BuildContext context) =>
+                                detail.accountType == AccountType.investment
+                                ? AccountEditInvestmentView(
+                                    api: widget.api,
+                                    accountId: accountId,
+                                  )
+                                : AccountEditView(
+                                    api: widget.api,
+                                    accountId: accountId,
+                                  ),
                           ),
                         );
                       },
@@ -203,24 +214,33 @@ class _AppShellState extends State<_AppShell> {
             MaterialPageRoute<void>(
               builder: (BuildContext context) => AccountManagerView(
                 api: widget.api,
-                onCreateAccount: () async {
+                onCreateAccount: (AccountType accountType) async {
                   await Navigator.of(context).push<bool>(
                     MaterialPageRoute<bool>(
                       builder: (BuildContext context) =>
-                          AccountEditView(api: widget.api),
+                          accountType == AccountType.investment
+                          ? AccountEditInvestmentView(api: widget.api)
+                          : AccountEditView(api: widget.api),
                     ),
                   );
                 },
-                onEditAccount: (String accountId) async {
-                  await Navigator.of(context).push<bool>(
-                    MaterialPageRoute<bool>(
-                      builder: (BuildContext context) => AccountEditView(
-                        api: widget.api,
-                        accountId: accountId,
-                      ),
-                    ),
-                  );
-                },
+                onEditAccount:
+                    (String accountId, AccountType accountType) async {
+                      await Navigator.of(context).push<bool>(
+                        MaterialPageRoute<bool>(
+                          builder: (BuildContext context) =>
+                              accountType == AccountType.investment
+                              ? AccountEditInvestmentView(
+                                  api: widget.api,
+                                  accountId: accountId,
+                                )
+                              : AccountEditView(
+                                  api: widget.api,
+                                  accountId: accountId,
+                                ),
+                        ),
+                      );
+                    },
               ),
             ),
           );

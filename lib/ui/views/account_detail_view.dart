@@ -30,7 +30,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
     ({
       AccountDetail detail,
       List<AccountTransactionItem> items,
-      Map<String, bool> transferIncoming,
+      Map<String, bool?> transactionIncoming,
     })
   >
   _data;
@@ -46,28 +46,32 @@ class _AccountDetailViewState extends State<AccountDetailView> {
     ({
       AccountDetail detail,
       List<AccountTransactionItem> items,
-      Map<String, bool> transferIncoming,
+      Map<String, bool?> transactionIncoming,
     })
   >
   _load() async {
     final detail = await widget.api.getAccountDetail(widget.accountId);
     final items = (await widget.api.listAccountTransactions(widget.accountId))
         .items;
-    final transferIncoming = <String, bool>{};
-    for (final item in items.where(
-      (item) => item.kind == TransactionKind.accountTransfer,
-    )) {
+    final transactionIncoming = <String, bool?>{};
+    for (final item in items) {
       final form = await widget.api.getAccountTransactionForm(
         transactionId: item.id,
         accountId: widget.accountId,
       );
       final existing = form.existing;
-      if (existing is AccountTransferInput) {
-        transferIncoming[item.id] =
-            existing.targetAccountId == widget.accountId;
+      if (existing != null) {
+        transactionIncoming[item.id] = _isIncomingForAccount(
+          existing,
+          widget.accountId,
+        );
       }
     }
-    return (detail: detail, items: items, transferIncoming: transferIncoming);
+    return (
+      detail: detail,
+      items: items,
+      transactionIncoming: transactionIncoming,
+    );
   }
 
   void _refresh() => setState(() {
@@ -82,7 +86,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
             ({
               AccountDetail detail,
               List<AccountTransactionItem> items,
-              Map<String, bool> transferIncoming,
+              Map<String, bool?> transactionIncoming,
             })
           >(
             future: _data,
@@ -95,8 +99,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
               final detail = data.detail;
               final filteredItems = data.items
                   .where(
-                    (item) =>
-                        _matchesFilter(item, data.transferIncoming[item.id]),
+                    (item) => _matchesFilter(data.transactionIncoming[item.id]),
                   )
                   .toList();
               final rate = detail.cost.units == 0
@@ -140,7 +143,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _accountTypeBadge(),
+                              _accountTypeBadge(detail.accountType),
                               Flexible(
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
@@ -159,13 +162,18 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                                     const SizedBox(width: 12),
                                     Flexible(
                                       child: _metric(
-                                        '累計利息／收益',
+                                        '已實現損益',
                                         _signedMoney(
-                                          detail.unrealizedPnl.units,
+                                          detail.realizedPnl.units,
                                           detail.currencyCode,
                                         ),
-                                        const Color(0xff00A86B),
+                                        detail.realizedPnl.units >= 0
+                                            ? const Color(0xff00A86B)
+                                            : const Color(0xffF43F5E),
                                         alignEnd: true,
+                                        valueKey: const Key(
+                                          'account-realized-pnl',
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -210,16 +218,32 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                                 color: const Color(0xffE8FAF2),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  '${detail.unrealizedPnl.units >= 0 ? '↑ ' : '↓ '}${_signedMoney(detail.unrealizedPnl.units, detail.currencyCode)}${rate == null ? '' : ' (${rate.toStringAsFixed(1)}%)'}',
-                                  maxLines: 1,
-                                  style: const TextStyle(
-                                    color: Color(0xff008A5C),
-                                    fontWeight: FontWeight.w800,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    '未實現損益',
+                                    style: TextStyle(
+                                      color: Color(0xff64748B),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      key: const Key('account-unrealized-pnl'),
+                                      '${detail.unrealizedPnl.units >= 0 ? '↑ ' : '↓ '}${_signedMoney(detail.unrealizedPnl.units, detail.currencyCode)}${rate == null ? '' : ' (${rate.toStringAsFixed(1)}%)'}',
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        color: detail.unrealizedPnl.units >= 0
+                                            ? const Color(0xff008A5C)
+                                            : const Color(0xffF43F5E),
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -353,21 +377,40 @@ class _AccountDetailViewState extends State<AccountDetailView> {
     TransactionKind.accountIncome => '收入',
     TransactionKind.accountExpense => '支出',
     TransactionKind.accountTransfer => '轉帳',
+    TransactionKind.investmentBuy => '投資買入',
+    TransactionKind.investmentSell => '投資賣出',
+    TransactionKind.investmentInterest => '利息',
+    TransactionKind.investmentPnlAdjustment => '損益調整',
     _ => '交易',
   };
 
-  bool _matchesFilter(AccountTransactionItem item, bool? transferIncoming) {
+  bool _matchesFilter(bool? isIncoming) {
     return switch (_flowFilter) {
       AccountFlowFilter.all => true,
-      AccountFlowFilter.incoming =>
-        item.kind == TransactionKind.accountIncome ||
-            (item.kind == TransactionKind.accountTransfer &&
-                transferIncoming == true),
-      AccountFlowFilter.outgoing =>
-        item.kind == TransactionKind.accountExpense ||
-            (item.kind == TransactionKind.accountTransfer &&
-                transferIncoming == false),
+      AccountFlowFilter.incoming => isIncoming == true,
+      AccountFlowFilter.outgoing => isIncoming == false,
     };
+  }
+
+  bool? _isIncomingForAccount(AccountTransactionInput input, String accountId) {
+    if (input is AccountIncomeInput) return true;
+    if (input is AccountExpenseInput) return false;
+    if (input is AccountTransferInput) {
+      return input.targetAccountId == accountId;
+    }
+    if (input is InvestmentBuyInput) {
+      return input.investmentAccountId == accountId;
+    }
+    if (input is InvestmentSellInput) {
+      return input.targetAccountId == accountId;
+    }
+    if (input is InvestmentInterestInput) {
+      return input.investmentAccountId == accountId ? null : true;
+    }
+    if (input is InvestmentPnlAdjustmentInput) {
+      return input.valueAdjustment.units > 0;
+    }
+    return false;
   }
 
   Widget _transactionTile(
@@ -474,6 +517,47 @@ class _AccountDetailViewState extends State<AccountDetailView> {
         color: const Color(0xff0EA5E9),
       );
     }
+    if (input is InvestmentBuyInput) {
+      final isInvestment = input.investmentAccountId == widget.accountId;
+      final value = isInvestment
+          ? input.amount.units
+          : -(input.amount.units + input.fee.units);
+      return (
+        amount: _signedMoney(value, input.amount.currencyCode),
+        icon: Icons.add_chart_rounded,
+        color: value >= 0 ? const Color(0xff00A86B) : const Color(0xffF43F5E),
+      );
+    }
+    if (input is InvestmentSellInput) {
+      final isInvestment = input.investmentAccountId == widget.accountId;
+      final value = isInvestment
+          ? -input.amount.units
+          : input.amount.units - input.fee.units;
+      return (
+        amount: _signedMoney(value, input.amount.currencyCode),
+        icon: Icons.currency_exchange_rounded,
+        color: value >= 0 ? const Color(0xff00A86B) : const Color(0xffF43F5E),
+      );
+    }
+    if (input is InvestmentInterestInput) {
+      return (
+        amount: _signedMoney(input.amount.units, input.amount.currencyCode),
+        icon: Icons.savings_outlined,
+        color: const Color(0xff00A86B),
+      );
+    }
+    if (input is InvestmentPnlAdjustmentInput) {
+      return (
+        amount: _signedMoney(
+          input.valueAdjustment.units,
+          input.valueAdjustment.currencyCode,
+        ),
+        icon: Icons.tune_rounded,
+        color: input.valueAdjustment.units >= 0
+            ? const Color(0xff00A86B)
+            : const Color(0xffF43F5E),
+      );
+    }
     return (
       amount: null,
       icon: _kindIcon(item.kind),
@@ -498,15 +582,18 @@ class _AccountDetailViewState extends State<AccountDetailView> {
   String _signedMoney(num value, String currency) =>
       '${value >= 0 ? '+' : '-'}${_money(value.abs(), currency)}';
 
-  Widget _accountTypeBadge() => Container(
+  Widget _accountTypeBadge(AccountType type) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
       color: const Color(0xffE8FAF2),
       borderRadius: BorderRadius.circular(20),
     ),
-    child: const Text(
-      '●  一般帳戶',
-      style: TextStyle(color: Color(0xff05875A), fontWeight: FontWeight.w700),
+    child: Text(
+      type == AccountType.investment ? '●  投資帳戶' : '●  一般帳戶',
+      style: const TextStyle(
+        color: Color(0xff05875A),
+        fontWeight: FontWeight.w700,
+      ),
     ),
   );
 
@@ -515,6 +602,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
     String value,
     Color color, {
     bool alignEnd = false,
+    Key? valueKey,
   }) => Column(
     crossAxisAlignment: alignEnd
         ? CrossAxisAlignment.end
@@ -534,6 +622,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
         fit: BoxFit.scaleDown,
         alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
         child: Text(
+          key: valueKey,
           value,
           maxLines: 1,
           style: TextStyle(color: color, fontWeight: FontWeight.w800),
@@ -541,16 +630,20 @@ class _AccountDetailViewState extends State<AccountDetailView> {
       ),
     ],
   );
-  IconData _kindIcon(TransactionKind kind) =>
-      kind == TransactionKind.accountIncome
-      ? Icons.arrow_forward_rounded
-      : kind == TransactionKind.accountExpense
-      ? Icons.arrow_back_rounded
-      : Icons.south_east_rounded;
-  Color _kindColor(TransactionKind kind) =>
-      kind == TransactionKind.accountIncome
-      ? const Color(0xff00A86B)
-      : kind == TransactionKind.accountExpense
-      ? const Color(0xffF43F5E)
-      : const Color(0xff0EA5E9);
+  IconData _kindIcon(TransactionKind kind) => switch (kind) {
+    TransactionKind.accountIncome ||
+    TransactionKind.investmentInterest => Icons.arrow_forward_rounded,
+    TransactionKind.accountExpense ||
+    TransactionKind.investmentSell => Icons.arrow_back_rounded,
+    TransactionKind.investmentBuy => Icons.add_chart_rounded,
+    TransactionKind.investmentPnlAdjustment => Icons.tune_rounded,
+    _ => Icons.south_east_rounded,
+  };
+  Color _kindColor(TransactionKind kind) => switch (kind) {
+    TransactionKind.accountIncome ||
+    TransactionKind.investmentInterest => const Color(0xff00A86B),
+    TransactionKind.accountExpense ||
+    TransactionKind.investmentSell => const Color(0xffF43F5E),
+    _ => const Color(0xff0EA5E9),
+  };
 }

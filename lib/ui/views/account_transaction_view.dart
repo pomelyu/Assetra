@@ -3,7 +3,15 @@ import 'package:flutter/services.dart';
 
 import '../../data/data.dart';
 
-enum AccountTransactionFormKind { income, expense, transfer }
+enum AccountTransactionFormKind {
+  income,
+  expense,
+  transfer,
+  investmentBuy,
+  investmentSell,
+  investmentInterest,
+  investmentPnlAdjustment,
+}
 
 class AccountTransactionView extends StatefulWidget {
   final PortfolioDataApi? api;
@@ -28,11 +36,19 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
             ? newValue
             : oldValue;
       });
+  static final TextInputFormatter _signedAmountInputFormatter =
+      TextInputFormatter.withFunction((oldValue, newValue) {
+        return RegExp(r'^-?\d*\.?\d{0,2}$').hasMatch(newValue.text)
+            ? newValue
+            : oldValue;
+      });
 
   AccountTransactionFormKind _kind = AccountTransactionFormKind.income;
   String? _source, _target;
+  String? _investmentAccount, _fundingAccount;
   final _amount = TextEditingController();
   final _targetAmount = TextEditingController();
+  final _fee = TextEditingController(text: '0');
   final _note = TextEditingController();
   late final TextEditingController _occurredAt = TextEditingController(
     text: _nowText(),
@@ -45,6 +61,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
   void dispose() {
     _amount.dispose();
     _targetAmount.dispose();
+    _fee.dispose();
     _note.dispose();
     _occurredAt.dispose();
     super.dispose();
@@ -94,9 +111,21 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
     final api = widget.api;
     final amount = double.tryParse(_amount.text);
     final targetAmount = double.tryParse(_targetAmount.text);
+    final fee = double.tryParse(_fee.text);
+    final isInvestment = _isInvestmentKind(_kind);
+    final needsFunding =
+        _kind != AccountTransactionFormKind.investmentPnlAdjustment;
     if (api == null ||
         amount == null ||
-        amount <= 0 ||
+        (isInvestment &&
+                _kind == AccountTransactionFormKind.investmentPnlAdjustment
+            ? amount == 0
+            : amount <= 0) ||
+        (isInvestment && _investmentAccount == null) ||
+        (isInvestment && needsFunding && _fundingAccount == null) ||
+        ((_kind == AccountTransactionFormKind.investmentBuy ||
+                _kind == AccountTransactionFormKind.investmentSell) &&
+            (fee == null || fee < 0)) ||
         (_kind == AccountTransactionFormKind.income && _target == null) ||
         (_kind == AccountTransactionFormKind.expense && _source == null) ||
         (_kind == AccountTransactionFormKind.transfer &&
@@ -111,6 +140,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
     final byId = {for (final a in accounts) a.id: a};
     try {
       setState(() => _saving = true);
+      final note = _note.text.trim().isEmpty ? null : _note.text.trim();
       final input = switch (_kind) {
         AccountTransactionFormKind.income => AccountIncomeInput(
           occurredAt: _occurredAt.text,
@@ -119,7 +149,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
             currencyCode: byId[_target]!.currencyCode,
             units: amount,
           ),
-          note: _note.text,
+          note: note,
         ),
         AccountTransactionFormKind.expense => AccountExpenseInput(
           occurredAt: _occurredAt.text,
@@ -128,9 +158,9 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
             currencyCode: byId[_source]!.currencyCode,
             units: amount,
           ),
-          note: _note.text,
+          note: note,
         ),
-        _ => AccountTransferInput(
+        AccountTransactionFormKind.transfer => AccountTransferInput(
           occurredAt: _occurredAt.text,
           sourceAccountId: _source!,
           targetAccountId: _target!,
@@ -142,8 +172,57 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
             currencyCode: byId[_target]!.currencyCode,
             units: targetAmount!,
           ),
-          note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+          note: note,
         ),
+        AccountTransactionFormKind.investmentBuy => InvestmentBuyInput(
+          occurredAt: _occurredAt.text,
+          investmentAccountId: _investmentAccount!,
+          sourceAccountId: _fundingAccount!,
+          amount: Money(
+            currencyCode: byId[_investmentAccount]!.currencyCode,
+            units: amount,
+          ),
+          fee: Money(
+            currencyCode: byId[_investmentAccount]!.currencyCode,
+            units: fee!,
+          ),
+          note: note,
+        ),
+        AccountTransactionFormKind.investmentSell => InvestmentSellInput(
+          occurredAt: _occurredAt.text,
+          investmentAccountId: _investmentAccount!,
+          targetAccountId: _fundingAccount!,
+          amount: Money(
+            currencyCode: byId[_investmentAccount]!.currencyCode,
+            units: amount,
+          ),
+          fee: Money(
+            currencyCode: byId[_investmentAccount]!.currencyCode,
+            units: fee!,
+          ),
+          note: note,
+        ),
+        AccountTransactionFormKind.investmentInterest =>
+          InvestmentInterestInput(
+            occurredAt: _occurredAt.text,
+            investmentAccountId: _investmentAccount!,
+            targetAccountId: _fundingAccount!,
+            amount: Money(
+              currencyCode: byId[_investmentAccount]!.currencyCode,
+              units: amount,
+            ),
+            note: note,
+          ),
+        AccountTransactionFormKind.investmentPnlAdjustment =>
+          InvestmentPnlAdjustmentInput(
+            occurredAt: _occurredAt.text,
+            investmentAccountId: _investmentAccount!,
+            valueAdjustment: Money(
+              currencyCode: byId[_investmentAccount]!.currencyCode,
+              units: amount,
+            ),
+            note: note,
+          ),
       };
       if (widget.transactionId == null) {
         await api.createAccountTransaction(input);
@@ -168,9 +247,15 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
     if (_initialized) return;
     if (input == null) {
       final accountId = widget.accountId;
-      if (accountId != null &&
-          accounts.any((account) => account.id == accountId)) {
-        _target = accountId;
+      final origin = accountId == null
+          ? null
+          : accounts.where((account) => account.id == accountId).firstOrNull;
+      if (origin?.accountType == AccountType.investment) {
+        _kind = AccountTransactionFormKind.investmentBuy;
+        _investmentAccount = origin!.id;
+        _fundingAccount = origin.fundingAccountId;
+      } else if (origin?.accountType == AccountType.general) {
+        _target = origin!.id;
       }
       _initialized = true;
       return;
@@ -192,15 +277,66 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
       _amount.text = input.sourceAmount.units.toString();
       _targetAmount.text = input.targetAmount.units.toString();
     }
+    if (input is InvestmentBuyInput) {
+      _kind = AccountTransactionFormKind.investmentBuy;
+      _investmentAccount = input.investmentAccountId;
+      _fundingAccount = input.sourceAccountId;
+      _amount.text = input.amount.units.toString();
+      _fee.text = input.fee.units.toString();
+    }
+    if (input is InvestmentSellInput) {
+      _kind = AccountTransactionFormKind.investmentSell;
+      _investmentAccount = input.investmentAccountId;
+      _fundingAccount = input.targetAccountId;
+      _amount.text = input.amount.units.toString();
+      _fee.text = input.fee.units.toString();
+    }
+    if (input is InvestmentInterestInput) {
+      _kind = AccountTransactionFormKind.investmentInterest;
+      _investmentAccount = input.investmentAccountId;
+      _fundingAccount = input.targetAccountId;
+      _amount.text = input.amount.units.toString();
+    }
+    if (input is InvestmentPnlAdjustmentInput) {
+      _kind = AccountTransactionFormKind.investmentPnlAdjustment;
+      _investmentAccount = input.investmentAccountId;
+      _amount.text = input.valueAdjustment.units.toString();
+    }
     _note.text = input.note ?? '';
     _occurredAt.text = input.occurredAt;
     _initialized = true;
   }
 
-  void _changeKind(AccountTransactionFormKind kind) {
+  void _changeKind(
+    AccountTransactionFormKind kind,
+    List<AccountDetail> accounts,
+  ) {
     setState(() {
       _kind = kind;
-      if (widget.transactionId != null || widget.accountId == null) return;
+      if (_isInvestmentKind(kind)) {
+        _source = null;
+        _target = null;
+        final selected = accounts
+            .where((account) => account.id == _investmentAccount)
+            .firstOrNull;
+        if (selected?.accountType != AccountType.investment) {
+          final origin = accounts
+              .where((account) => account.id == widget.accountId)
+              .firstOrNull;
+          _investmentAccount = origin?.accountType == AccountType.investment
+              ? origin!.id
+              : null;
+        }
+        _selectDefaultFunding(accounts);
+        return;
+      }
+      _investmentAccount = null;
+      _fundingAccount = null;
+      if (widget.accountId == null) {
+        _source = null;
+        _target = null;
+        return;
+      }
       switch (kind) {
         case AccountTransactionFormKind.income:
           _source = null;
@@ -211,8 +347,34 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
         case AccountTransactionFormKind.transfer:
           _source = widget.accountId;
           _target = null;
+        case AccountTransactionFormKind.investmentBuy:
+        case AccountTransactionFormKind.investmentSell:
+        case AccountTransactionFormKind.investmentInterest:
+        case AccountTransactionFormKind.investmentPnlAdjustment:
+          break;
       }
     });
+  }
+
+  void _selectDefaultFunding(List<AccountDetail> accounts) {
+    final investment = accounts
+        .where((account) => account.id == _investmentAccount)
+        .firstOrNull;
+    if (investment == null) {
+      _fundingAccount = null;
+      return;
+    }
+    final eligible = accounts.where(
+      (account) =>
+          account.accountType == AccountType.general &&
+          account.currencyCode == investment.currencyCode,
+    );
+    if (!eligible.any((account) => account.id == _fundingAccount)) {
+      _fundingAccount =
+          eligible.any((account) => account.id == investment.fundingAccountId)
+          ? investment.fundingAccountId
+          : null;
+    }
   }
 
   Future<void> _delete() async {
@@ -276,7 +438,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
       ),
       body: FutureBuilder<List<Object?>>(
         future: Future.wait<Object?>([
-          widget.api!.listManagedAccounts(accountType: AccountType.general),
+          widget.api!.listManagedAccounts(),
           widget.api!.getAccountTransactionForm(
             transactionId: widget.transactionId,
             accountId: widget.accountId,
@@ -295,13 +457,43 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
             (snapshot.data![1] as AccountTransactionFormData).existing,
             accounts,
           );
-          if (accounts.isEmpty) return const Center(child: Text('尚未建立資料'));
+          final generalAccounts = accounts
+              .where((account) => account.accountType == AccountType.general)
+              .toList();
+          final investmentAccounts = accounts
+              .where((account) => account.accountType == AccountType.investment)
+              .toList();
+          final allowedKinds = _allowedKinds(accounts);
+          if (!allowedKinds.contains(_kind)) {
+            _kind = allowedKinds.first;
+          }
+          if (generalAccounts.isEmpty && investmentAccounts.isEmpty) {
+            return const Center(child: Text('尚未建立資料'));
+          }
+          _selectDefaultFunding(accounts);
+          final selectedInvestment = investmentAccounts
+              .where((account) => account.id == _investmentAccount)
+              .firstOrNull;
+          final fundingAccounts = selectedInvestment == null
+              ? const <AccountDetail>[]
+              : generalAccounts
+                    .where(
+                      (account) =>
+                          account.currencyCode ==
+                          selectedInvestment.currencyCode,
+                    )
+                    .toList();
           final amountCurrency = _currencyLabel(accounts, switch (_kind) {
             AccountTransactionFormKind.income => _target,
             AccountTransactionFormKind.expense => _source,
             AccountTransactionFormKind.transfer => _source,
+            AccountTransactionFormKind.investmentBuy ||
+            AccountTransactionFormKind.investmentSell ||
+            AccountTransactionFormKind.investmentInterest ||
+            AccountTransactionFormKind.investmentPnlAdjustment =>
+              _investmentAccount,
           });
-          final ids = accounts
+          final ids = generalAccounts
               .map((a) => DropdownMenuItem(value: a.id, child: Text(a.name)))
               .toList();
           return ListView(
@@ -311,7 +503,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
                 _dropdownRow<AccountTransactionFormKind>(
                   label: '交易類型',
                   value: _kind,
-                  items: AccountTransactionFormKind.values
+                  items: allowedKinds
                       .map(
                         (kind) => DropdownMenuItem(
                           value: kind,
@@ -320,7 +512,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
                       )
                       .toList(),
                   onChanged: (kind) {
-                    if (kind != null) _changeKind(kind);
+                    if (kind != null) _changeKind(kind, accounts);
                   },
                 ),
                 _textRow(
@@ -333,7 +525,8 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
               ]),
               const SizedBox(height: 12),
               _section('帳戶關聯', [
-                if (_kind != AccountTransactionFormKind.expense)
+                if (!_isInvestmentKind(_kind) &&
+                    _kind != AccountTransactionFormKind.expense)
                   _dropdownRow<String>(
                     dropdownKey: const Key(
                       'account-transaction-target-account',
@@ -341,9 +534,13 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
                     label: '存入 / 目標帳戶',
                     value: _target,
                     items: ids,
-                    onChanged: (id) => setState(() => _target = id),
+                    onChanged: ids.isEmpty
+                        ? null
+                        : (id) => setState(() => _target = id),
+                    emptyText: '無符合帳戶',
                   ),
-                if (_kind != AccountTransactionFormKind.income)
+                if (!_isInvestmentKind(_kind) &&
+                    _kind != AccountTransactionFormKind.income)
                   _dropdownRow<String>(
                     dropdownKey: const Key(
                       'account-transaction-source-account',
@@ -351,20 +548,81 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
                     label: '來源 / 對象帳戶',
                     value: _source,
                     items: ids,
-                    onChanged: (id) => setState(() => _source = id),
+                    onChanged: ids.isEmpty
+                        ? null
+                        : (id) => setState(() => _source = id),
+                    emptyText: '無符合帳戶',
+                  ),
+                if (_isInvestmentKind(_kind))
+                  _dropdownRow<String>(
+                    dropdownKey: const Key(
+                      'account-transaction-investment-account',
+                    ),
+                    label: '投資帳戶',
+                    value: _investmentAccount,
+                    items: investmentAccounts
+                        .map(
+                          (account) => DropdownMenuItem(
+                            value: account.id,
+                            child: Text(account.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: investmentAccounts.isEmpty
+                        ? null
+                        : (id) {
+                            setState(() {
+                              _investmentAccount = id;
+                              _fundingAccount = null;
+                              _selectDefaultFunding(accounts);
+                            });
+                          },
+                    emptyText: '無符合帳戶',
+                  ),
+                if (_isInvestmentKind(_kind) &&
+                    _kind != AccountTransactionFormKind.investmentPnlAdjustment)
+                  _dropdownRow<String>(
+                    dropdownKey: const Key(
+                      'account-transaction-funding-account',
+                    ),
+                    label: _kind == AccountTransactionFormKind.investmentBuy
+                        ? '扣款帳戶'
+                        : '入款帳戶',
+                    value: _fundingAccount,
+                    items: fundingAccounts
+                        .map(
+                          (account) => DropdownMenuItem(
+                            value: account.id,
+                            child: Text(account.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: fundingAccounts.isEmpty
+                        ? null
+                        : (id) => setState(() => _fundingAccount = id),
+                    emptyText: '無符合帳戶',
                   ),
               ]),
               const SizedBox(height: 12),
               _section('金額與幣別設定', [
                 _textRow(
-                  label: _kind == AccountTransactionFormKind.transfer
+                  textFieldKey: const Key('account-transaction-amount'),
+                  label:
+                      _kind ==
+                          AccountTransactionFormKind.investmentPnlAdjustment
+                      ? '損益調整'
+                      : _kind == AccountTransactionFormKind.transfer
                       ? '來源金額'
                       : '交易金額',
                   controller: _amount,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  inputFormatters: [_amountInputFormatter],
+                  inputFormatters: [
+                    _kind == AccountTransactionFormKind.investmentPnlAdjustment
+                        ? _signedAmountInputFormatter
+                        : _amountInputFormatter,
+                  ],
                   prefixText: amountCurrency,
                 ),
                 if (_kind == AccountTransactionFormKind.transfer)
@@ -376,6 +634,18 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
                     ),
                     inputFormatters: [_amountInputFormatter],
                     prefixText: _currencyLabel(accounts, _target),
+                  ),
+                if (_kind == AccountTransactionFormKind.investmentBuy ||
+                    _kind == AccountTransactionFormKind.investmentSell)
+                  _textRow(
+                    textFieldKey: const Key('account-transaction-fee'),
+                    label: '手續費與稅',
+                    controller: _fee,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: [_amountInputFormatter],
+                    prefixText: amountCurrency,
                   ),
               ]),
               const SizedBox(height: 12),
@@ -445,7 +715,8 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
     required String label,
     required T? value,
     required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
+    required ValueChanged<T?>? onChanged,
+    String emptyText = '請選擇',
   }) => SizedBox(
     height: 56,
     child: Padding(
@@ -465,9 +736,9 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
               child: DropdownButton<T>(
                 key: dropdownKey,
                 value: value,
-                hint: const Align(
+                hint: Align(
                   alignment: Alignment.centerRight,
-                  child: Text('請選擇'),
+                  child: Text(items.isEmpty ? emptyText : '請選擇'),
                 ),
                 items: items,
                 selectedItemBuilder: (context) => items
@@ -499,6 +770,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
   );
 
   Widget _textRow({
+    Key? textFieldKey,
     required String label,
     required TextEditingController controller,
     TextInputType? keyboardType,
@@ -523,6 +795,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
+              key: textFieldKey,
               controller: controller,
               keyboardType: keyboardType,
               inputFormatters: inputFormatters,
@@ -587,5 +860,42 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
     AccountTransactionFormKind.income => '收入',
     AccountTransactionFormKind.expense => '支出',
     AccountTransactionFormKind.transfer => '轉帳',
+    AccountTransactionFormKind.investmentBuy => '投資買入',
+    AccountTransactionFormKind.investmentSell => '投資賣出',
+    AccountTransactionFormKind.investmentInterest => '利息',
+    AccountTransactionFormKind.investmentPnlAdjustment => '損益調整',
   };
+
+  bool _isInvestmentKind(AccountTransactionFormKind kind) => switch (kind) {
+    AccountTransactionFormKind.investmentBuy ||
+    AccountTransactionFormKind.investmentSell ||
+    AccountTransactionFormKind.investmentInterest ||
+    AccountTransactionFormKind.investmentPnlAdjustment => true,
+    _ => false,
+  };
+
+  List<AccountTransactionFormKind> _allowedKinds(List<AccountDetail> accounts) {
+    const generalKinds = [
+      AccountTransactionFormKind.income,
+      AccountTransactionFormKind.expense,
+      AccountTransactionFormKind.transfer,
+    ];
+    const investmentKinds = [
+      AccountTransactionFormKind.investmentBuy,
+      AccountTransactionFormKind.investmentSell,
+      AccountTransactionFormKind.investmentInterest,
+      AccountTransactionFormKind.investmentPnlAdjustment,
+    ];
+    if (widget.transactionId != null) {
+      return _isInvestmentKind(_kind) ? investmentKinds : generalKinds;
+    }
+    final origin = accounts
+        .where((account) => account.id == widget.accountId)
+        .firstOrNull;
+    return switch (origin?.accountType) {
+      AccountType.general => generalKinds,
+      AccountType.investment => investmentKinds,
+      _ => [...generalKinds, ...investmentKinds],
+    };
+  }
 }

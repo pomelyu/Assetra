@@ -4,8 +4,9 @@ import '../../data/data.dart';
 
 class AccountManagerView extends StatefulWidget {
   final PortfolioDataApi? api;
-  final Future<void> Function() onCreateAccount;
-  final Future<void> Function(String accountId) onEditAccount;
+  final Future<void> Function(AccountType accountType) onCreateAccount;
+  final Future<void> Function(String accountId, AccountType accountType)
+  onEditAccount;
 
   const AccountManagerView({
     super.key,
@@ -19,7 +20,7 @@ class AccountManagerView extends StatefulWidget {
 }
 
 class _AccountManagerViewState extends State<AccountManagerView> {
-  late Future<List<ManagedAccountSummary>> _accounts;
+  late Future<_ManagedAccountsData> _accounts;
 
   @override
   void initState() {
@@ -27,10 +28,21 @@ class _AccountManagerViewState extends State<AccountManagerView> {
     _accounts = _load();
   }
 
-  Future<List<ManagedAccountSummary>> _load() async {
+  Future<_ManagedAccountsData> _load() async {
     final api = widget.api;
-    if (api == null) return [];
-    return (await api.listManagedAccounts(accountType: AccountType.general));
+    if (api == null) return const _ManagedAccountsData([], {}, {});
+    final allAccounts = await api.listManagedAccounts();
+    final accounts = allAccounts
+        .where((account) => account.detail.accountType != AccountType.stock)
+        .toList();
+    final categoryNames = {
+      for (final category in await api.listCategories())
+        category.id: category.name,
+    };
+    final accountNames = {
+      for (final account in allAccounts) account.detail.id: account.detail.name,
+    };
+    return _ManagedAccountsData(accounts, categoryNames, accountNames);
   }
 
   void _refresh() {
@@ -50,13 +62,14 @@ class _AccountManagerViewState extends State<AccountManagerView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('帳戶管理')),
-      body: FutureBuilder<List<ManagedAccountSummary>>(
+      body: FutureBuilder<_ManagedAccountsData>(
         future: _accounts,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
-          final accounts = snapshot.data ?? [];
+          final data = snapshot.data ?? const _ManagedAccountsData([], {}, {});
+          final accounts = data.accounts;
           if (accounts.isEmpty) return const Center(child: Text('尚未建立資料'));
           final active = accounts.where((a) => !a.detail.isArchived);
           final archived = accounts.where((a) => a.detail.isArchived);
@@ -85,7 +98,15 @@ class _AccountManagerViewState extends State<AccountManagerView> {
                     child: ListTile(
                       title: Text(account.detail.name),
                       subtitle: Text(
-                        '${account.detail.currencyCode} · ${account.detail.isArchived ? '已封存' : '使用中'}',
+                        [
+                          _accountTypeLabel(account.detail.accountType),
+                          data.categoryNames[account.detail.categoryId] ??
+                              account.detail.categoryId,
+                          account.detail.currencyCode,
+                          account.detail.isArchived ? '已封存' : '使用中',
+                          if (account.detail.fundingAccountId != null)
+                            '資金來源：${data.accountNames[account.detail.fundingAccountId] ?? account.detail.fundingAccountId}',
+                        ].join(' · '),
                       ),
                       trailing: IconButton(
                         icon: Icon(
@@ -114,7 +135,10 @@ class _AccountManagerViewState extends State<AccountManagerView> {
                       onTap: account.detail.isArchived
                           ? null
                           : () async {
-                              await widget.onEditAccount(account.detail.id);
+                              await widget.onEditAccount(
+                                account.detail.id,
+                                account.detail.accountType,
+                              );
                               _refresh();
                             },
                     ),
@@ -132,11 +156,50 @@ class _AccountManagerViewState extends State<AccountManagerView> {
       floatingActionButton: FloatingActionButton(
         key: const Key('account-manager-add-account'),
         onPressed: () async {
-          await widget.onCreateAccount();
+          final accountType = await showModalBottomSheet<AccountType>(
+            context: context,
+            builder: (context) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ListTile(title: Text('選擇帳戶類型')),
+                  ListTile(
+                    title: const Text('一般帳戶'),
+                    onTap: () => Navigator.of(context).pop(AccountType.general),
+                  ),
+                  ListTile(
+                    title: const Text('投資帳戶'),
+                    onTap: () =>
+                        Navigator.of(context).pop(AccountType.investment),
+                  ),
+                ],
+              ),
+            ),
+          );
+          if (accountType == null) return;
+          await widget.onCreateAccount(accountType);
           _refresh();
         },
         child: const Icon(Icons.add),
       ),
     );
   }
+
+  String _accountTypeLabel(AccountType type) => switch (type) {
+    AccountType.general => '一般帳戶',
+    AccountType.investment => '投資帳戶',
+    AccountType.stock => '股票帳戶',
+  };
+}
+
+class _ManagedAccountsData {
+  final List<ManagedAccountSummary> accounts;
+  final Map<String, String> categoryNames;
+  final Map<String, String> accountNames;
+
+  const _ManagedAccountsData(
+    this.accounts,
+    this.categoryNames,
+    this.accountNames,
+  );
 }

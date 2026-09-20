@@ -42,7 +42,7 @@ class _AssetViewState extends State<AssetView> {
     }
     final accounts = (await api.listAssetAccounts(categoryId: _categoryId))
         .items
-        .where((a) => a.detail.accountType == AccountType.general)
+        .where((a) => a.detail.accountType != AccountType.stock)
         .toList();
     return (accounts: accounts, categories: await api.listCategories());
   }

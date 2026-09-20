@@ -198,4 +198,71 @@ void main() {
       throwsA(isA<DataApiException>()),
     );
   });
+
+  test('修改或刪除早期買入造成後續賣出超額時回滾並保留原交易', () async {
+    final cash = await api.createAccount(
+      const CreateAccountInput(
+        name: 'Cash',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 1000,
+        initialValue: 1000,
+      ),
+    );
+    final investment = await api.createInvestmentAccount(
+      CreateInvestmentAccountInput(
+        name: 'Fund',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 0,
+        initialValue: 0,
+        accountType: AccountType.investment,
+        fundingAccountId: cash,
+      ),
+    );
+    final buyId = await api.createAccountTransaction(
+      InvestmentBuyInput(
+        occurredAt: '2026-09-11 09:00',
+        investmentAccountId: investment,
+        sourceAccountId: cash,
+        amount: Money(currencyCode: 'USD', units: 100),
+        fee: Money(currencyCode: 'USD', units: 0),
+      ),
+    );
+    await api.createAccountTransaction(
+      InvestmentSellInput(
+        occurredAt: '2026-09-11 10:00',
+        investmentAccountId: investment,
+        targetAccountId: cash,
+        amount: Money(currencyCode: 'USD', units: 80),
+        fee: Money(currencyCode: 'USD', units: 0),
+      ),
+    );
+
+    await expectLater(
+      api.updateAccountTransaction(
+        buyId,
+        InvestmentBuyInput(
+          occurredAt: '2026-09-11 09:00',
+          investmentAccountId: investment,
+          sourceAccountId: cash,
+          amount: Money(currencyCode: 'USD', units: 50),
+          fee: Money(currencyCode: 'USD', units: 0),
+        ),
+      ),
+      throwsA(isA<DataApiException>()),
+    );
+    await expectLater(
+      api.deleteAccountTransaction(buyId),
+      throwsA(isA<DataApiException>()),
+    );
+
+    final detail = await api.getAccountDetail(investment);
+    expect(detail.cost.units, 20);
+    expect(detail.value!.units, 20);
+    final buy =
+        (await api.getAccountTransactionForm(transactionId: buyId)).existing
+            as InvestmentBuyInput;
+    expect(buy.amount.units, 100);
+  });
 }
