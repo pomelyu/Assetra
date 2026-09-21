@@ -1,137 +1,165 @@
-# 新增交易名稱
+# 股票帳戶完整功能
 
-為所有一般、投資及股票交易加入正式的「交易名稱」。交易名稱由使用者選填；未填時由 Data API 依交易內容產生一次預設名稱並保存，作為各交易清單的主要辨識文字。
+完成股票帳戶從代號目錄同步、行情更新、股票總覽／明細到買入、賣出及股息交易的完整流程。本階段不處理 `ReportView`、`GraphView` 或任何 snapshot 的建立、更新、查詢與測試。
 
 ## 已確認規格
 
-- `TRANSACTIONS` 新增持久化交易名稱欄位，不是 UI 顯示時才產生的 fallback。
-- `AccountTransactionView` 與 `StockTransactionView` 的最上方皆提供「交易名稱」輸入欄位。
-- 儲存前移除頭尾空白；空字串或純空白視為未填。
-- 自訂名稱最多 30 個字元；UI 與 Data API 都必須拒絕超長內容，不得截斷。
-- 一般及投資交易未填名稱時，依儲存當下的類型產生：「轉帳」、「收入」、「支出」、「投資買入」、「投資賣出」、「利息」或「損益調整」。
-- 股票交易未填名稱時：
-  - 買入：`買入 xxx n股`
-  - 賣出：`賣出 xxx n股`
-  - 股息：`xxx 配息`
-- `xxx` 在台股（`MARKET_CODE = TW`）使用標的顯示名稱；其他市場一律使用股票代號。
-- 股數使用公開 API 的實際值，保留必要小數並移除無意義尾零，例如 `10股`、`1.25股`。
-- 預設名稱只在 create／update 收到空白名稱時產生並寫入。已保存名稱不因股票、帳戶、金額或股數等內容變更而自動更新；使用者再次清空並儲存時，才依原交易類型及修改後內容重新產生。
-- 交易類型只在建立交易時選擇；任何一般、投資或股票交易建立後皆不可變更類型。編輯時交易類型須唯讀，Data API 也必須拒絕以 update 改變既有 `KIND`。
-- 交易清單以交易名稱作為主要文字；備註仍是獨立欄位，不再代替交易名稱。
-- 既有資料庫升級時直接執行 migration，依每筆既有交易內容回填預設名稱。
+- 參考 `/Users/cychien/Documents/Workspace/StockBook` 的資料來源、抓取及解析規則，改寫成 Assetra 可在 Dart／Flutter 內使用的實作，不依賴 StockBook 的 Python backend。
+- 股票代號目錄來源為 TWSE Open API `t187ap03_L`、TPEX Open API `mopsfin_t187ap03_O`、NASDAQ Trader `nasdaqlisted.txt` 與 `otherlisted.txt`。
+- 台股以交易所中文簡稱顯示，並保存 Yahoo Finance 所需的 `.TW`／`.TWO` quote symbol；美股以股票代號顯示，目錄名稱仍可保存供搜尋。
+- `SettingView` 直接新增獨立股票資料區塊與「更新股票代號」按鈕；`DataManagerView` 維持只處理備份／還原。
+- 代號同步採 upsert：新增代號、更新既有名稱及 quote symbol。同步結果不再出現的證券不得刪除；標記為不可用於新交易，日後再次出現則恢復可用。
+- 只有完整成功取得的市場來源才能用來判定該來源中哪些既有證券已停用；單一來源失敗不得誤停用既有資料，其餘成功來源仍可局部提交。
+- 尚未成功同步過股票代號時，`StockTransactionView` 不允許新增交易；股票下拉選單沒有可新增選項，顯示「無符合股票」並引導到 `SettingView`。
+- 新增交易只能選擇目前可交易的證券；編輯既有交易仍須載入已停用證券，但不可改選另一個停用證券。
+- `StockView` 的同步按鈕更新所有曾有買入或賣出交易的證券行情；零持股及只存在於封存股票帳戶的證券仍納入。只有股息、從未買賣的證券不納入。
+- 行情同步使用 Yahoo Finance 相容代號；成功項目覆寫最後價格與時間，失敗項目保留最後成功資料。部分成功必須保存成功項目並回報失敗清單。
+- 股票帳戶建立／編輯沿用 `AccountEditView-invest`：必須指定同幣別、未封存的一般資金來源；帳戶建立後不可變更類型，有財務歷史時不可變更幣別。
+- `StockTransactionView` 支援買入、賣出及股息；建立後不可改變交易類型，交易名稱、FIFO、費用、資金帳戶投影及封存限制沿用既有 schema／spec。
+- 股票或交易類型變更時，帳戶下拉選單只顯示可完成該交易的帳戶；沒有符合的股票帳戶或資金來源時欄位 disabled 並顯示「無符合帳戶」。
+- loading、empty、error 與 stale data 必須明確且可恢復；同步期間不得清空現有目錄、行情、部位或歷史。
 
 ## 現況與範圍界線
 
-- schema version 已升為 2，`TRANSACTIONS.NAME` 與 v1 → v2 啟動 migration 已完成。
-- `PortfolioDatabase.open` 會在建表與 seed 前後的同一開啟 transaction 中完成必要 migration。
-- `StockTransactionInput`、`AccountTransactionInput`、create/update/form/list API 與 CSV 備份皆受影響。
-- `AccountTransactionView` 已實作，可完整加入名稱欄位。
-- 目前沒有 `StockTransactionView` 實作，`StockView` 仍是占位畫面。本任務包含股票名稱的資料契約、預設值、migration、清單資料與測試；不從零建立整套股票交易 UI。未來實作該 view 時必須依本文件加入名稱欄位。
-- 不改變交易金額、成本、現值、已實現／未實現損益、投影、重播、FIFO 或快照計算。
-- 不因本功能主動改寫既有名稱；只有使用者清空後儲存才重新產生。
+- 已有股票帳戶 schema、買入／賣出／股息 Data API、FIFO、資金帳戶投影、股票總覽／明細 query 與資料層測試基礎。
+- `StockView` 仍是占位畫面；`StockDetailView` 與 `StockTransactionView` 尚未實作 UI。
+- `SECURITIES` 尚無可交易狀態；既有 `resolveSecurity` 允許任意建立證券，需收斂為同步目錄主導的新交易流程。
+- `refreshMarketData` 目前只有可注入 callback 契約，尚無正式網路 provider；`STOCK_PRICES` 已能保存最後成功價格。
+- 股票帳戶建立／編輯已與投資帳戶共用畫面及 API；只補股票流程必要差異與回歸驗證，不重寫一般／投資帳戶功能。
+- 不修改 `ReportView`，不新增 `GraphView`，不呼叫或修改週快照邏輯，也不新增 snapshot 測試。
 
 ## 實作原則
 
-- 依 `docs/testing.md` 先新增失敗測試，再實作最小修改；依本次指示不新增 migration 專用測試或保留 migration script。
-- 預設名稱由 Data API 產生與驗證，不能只依賴 UI。
-- 一筆經濟事件只有一份 `TRANSACTIONS.NAME`；各帳戶中的投影共用相同名稱。
-- migration、create 與 update 必須原子化；失敗不得留下部分資料。
-- migration 回填須依 parent transaction、subtype 與 security 關聯取得完整內容，不以備註代替名稱。
-- 每階段先跑聚焦測試；最後執行 `flutter analyze`、`flutter test` 與 `git diff --check`。
+- 依 `docs/testing.md`，帳務或資料行為先寫失敗測試，再做最小實作；只把確實通過的測試項目標記 `[x]`。
+- 網路抓取、解析與 SQLite 寫入分層；Data API 不依賴 widget，UI 不解析供應商 payload。
+- 外部 HTTP client／provider 必須可注入，以 fixture 測試解析、部分失敗、timeout 與 stale-data 行為；測試不得依賴即時網路。
+- 目錄同步、行情同步與交易寫入各自維持清楚的原子邊界，失敗不得留下半筆交易或清空最後成功資料。
+- 每個垂直切片先跑聚焦測試；最後執行 `flutter analyze`、`flutter test` 與 `git diff --check`。
+- Flutter UI 前先 `flutter attach`；若失敗立即停止 UI 驗證並回報。修改後使用 hot reload，必要時才 hot restart。
 
 ## 階段任務
 
-### 1. Schema 契約與 migration
+### 1. 股票目錄狀態與 migration
 
-- [x] 更新 `docs/schema.md`：在 `TRANSACTIONS` 定義 `NAME`、非空白、最多 30 個字元、正規化與預設名稱規則。
-- [x] 將程式 schema version 由 1 升為 2，讓新資料庫直接建立含名稱約束的 `TRANSACTIONS`。
-- [x] 建立 v1 → v2 migration：在單一 transaction 中加入欄位、回填所有既有交易、建立約束，成功後才更新 `SCHEMA_METADATA`。
-- [x] 股票回填時，台股使用 `SECURITIES.NAME`，其他市場使用 `SECURITIES.SYMBOL`；買賣包含格式化股數，股息不含股數。
-- [x] migration 遇到缺少 subtype/security 或無法產生合法名稱時整體回滾並回報錯誤。
-- [x] 依使用者指示直接 migration Simulator 的 v1 資料庫並確認六筆既有交易名稱；不新增 migration 專用測試或保留 script。
+- [ ] 先新增 schema／Data API 失敗測試，定義可交易狀態、來源識別、同步結果及停用後歷史仍可讀取。
+- [ ] 擴充 `SECURITIES`，區分可供新交易選擇與已停用證券；保留 stable ID、交易、最後行情及名稱。
+- [ ] 實作 schema v2 → v3 migration；既有證券預設保持可用，備份 schema version 與 CSV 欄位同步升版。
+- [ ] 新資料庫直接建立新版 schema；migration／還原不得破壞交易名稱或帳務資料。
+- [ ] 更新 domain model，讓 `SecurityOption`、既有交易 form 與同步結果表達 active／inactive、來源及顯示文字。
 
-**驗證：** `flutter test test/data/database_infrastructure_test.dart`
+**驗證：** `flutter test test/data/database_infrastructure_test.dart test/data/backup_and_restore_test.dart test/data/stock_transactions_test.dart`
 
-### 2. 公開 model、驗證與預設名稱
+### 2. 代號目錄同步 Data API
 
-- [x] 在 `StockTransactionInput` 與 `AccountTransactionInput` 共通欄位加入可選 `name`，existing form decode 回傳保存名稱。
-- [x] 在 `AccountTransactionItem` 加入必填名稱，使清單不需自行推測標題。
-- [x] 建立單一內部正規化流程：trim、空白時產生預設名稱、超過 30 字元拋出 `DataApiException`；create/update 共用。
-- [x] 一般／投資預設名稱只依當次 `TransactionKind` 產生；非空名稱保持不變。
-- [x] 股票預設名稱依 market、名稱／代號、方向與實際股數產生；台股使用顯示名稱，其他市場使用代號，股數不得顯示縮放整數或多餘尾零。
-- [x] update 時比對既有 `TRANSACTIONS.KIND` 與 input kind；不同時原子性拒絕，不得刪除或重建原事件，也不得改變名稱、順序、帳務或投影。
-- [x] 新增 Data API 測試：名稱 trim／預設／長度拒絕、一般與股票交易改變類型被拒絕且原資料不變。
+- [ ] 建立可注入 HTTP catalog provider，解析四個來源；忽略空代號、測試股票、檔尾 metadata 與 malformed rows，正規化 market、symbol、quote symbol、currency、display name。
+- [ ] 台股上市保存 `SYMBOL = 公司代號`、`NAME = 公司簡稱`、`QUOTE_SYMBOL = 代號.TW`；上櫃使用 `.TWO`。美股 symbol 正規化為大寫，交易畫面顯示 symbol。
+- [ ] 在 `PortfolioDataApi` 加入目錄同步方法與結果 DTO，回報各來源成功／失敗、新增、更新、停用、恢復數量及最後成功時間。
+- [ ] 同步採按來源安全 upsert；只有來源完整成功時才停用缺席證券，來源失敗時保留其舊資料。重複代號須有確定且可測試的去重規則。
+- [ ] 移除新交易任意 `resolveSecurity` 建立未知證券的路徑；新交易與搜尋只接受 active 證券，既有 inactive 證券仍可依 ID 解碼。
+- [ ] 新增 fixture 測試：四來源解析、中文名稱、`.TW`／`.TWO`、測試代號排除、重複資料、名稱更新、停用、恢復、全失敗與部分失敗。
 
-**驗證：** `flutter test test/data/general_account_transactions_test.dart test/data/manual_investment_transactions_test.dart test/data/stock_transactions_test.dart`
+**驗證：** `flutter test test/data/stock_catalog_sync_test.dart test/data/stock_transactions_test.dart test/data/data_api_integration_test.dart`
 
-### Checkpoint A：資料契約
+### Checkpoint A：股票目錄
 
-- [x] 新資料庫與已直接升級的 v1 Simulator 資料庫都保證每筆交易有合法名稱。
-- [x] create/update/form/list API 可完整往返名稱。
-- [x] 既有帳務重播、投影、FIFO 與回滾測試保持通過。
+- [ ] 新資料庫及 v2 migration 後皆可保存證券可交易狀態。
+- [ ] 任一來源失敗不會清空或誤停用該來源既有證券。
+- [ ] 未同步目錄時不能新增股票交易，既有交易仍可完整讀取。
 
-### 3. 寫入、清單與投影整合
+### 3. 追蹤集合與行情同步 Data API
 
-- [x] 修改一般、投資與股票寫入流程，將正規化名稱與 parent transaction 原子性保存。
-- [x] update 使用呼叫端名稱；只有 null／空白才依更新後內容產生新預設名稱。
-- [x] `listAccountTransactions` 與 `listStockTransactions` 回傳 parent 保存名稱；同一事件的各帳戶投影因此共用名稱。
-- [x] 帳戶明細交易列以 `item.name` 為主要文字；備註保留為獨立資料，不再作為標題 fallback。
-- [x] routing 回歸測試確認一般與投資投影使用 parent 保存名稱並可進入同一事件；刪除與失敗回滾沿用既有原子性測試。
+- [ ] 先新增資料測試，定義 tracked securities 為至少有一筆買入或賣出的 security；包含零持股、停用證券及封存股票帳戶，排除僅有股息者。
+- [ ] 建立可注入 Yahoo Finance quote provider，依 `QUOTE_SYMBOL` 批次取得最新價格及 quote time；批次與解析規則參考 StockBook 的 yfinance 行為。
+- [ ] 將正式 provider 接到 `refreshMarketData`；只更新 tracked securities，並保留既有匯率更新契約。
+- [ ] 成功時更新 `STOCK_PRICES`；缺值、非正值、錯誤或 timeout 不覆寫最後成功資料。
+- [ ] 回傳成功數及逐項失敗資訊；部分成功提交成功項目，全部失敗仍可使用 stale data。
+- [ ] 測試持有中、已結清、封存帳戶、僅股息、inactive security、部分／全部失敗及重試成功。
 
-**驗證：** `flutter test test/data/transactions_test.dart test/ui_routing_test.dart`
+**驗證：** `flutter test test/data/market_data_refresh_test.dart test/data/data_api_integration_test.dart test/data/stock_transactions_test.dart`
 
-### 4. AccountTransactionView
+### 4. 股票帳戶建立與編輯整合
 
-- [x] 在表單最上方加入選填「交易名稱」，最多 30 字元，並提供穩定 semantic key。
-- [x] 新建時名稱保持空白並交由 Data API 生成，UI 不複製生成規則。
-- [x] 編輯時載入保存名稱；改變帳戶、金額或其他可編輯內容時不自動修改名稱。
-- [x] 編輯既有交易時將交易類型顯示為唯讀，不提供切換選項；新建交易時仍可選擇適用類型。
-- [x] 清空名稱後儲存時傳入空值，由 Data API 依原交易類型及修改後內容重產生；再次開啟須顯示新名稱。
-- [x] 超過 30 字元時顯示可恢復錯誤並保留表單；Data API 仍有第二層驗證。
-- [x] 新增 widget/routing 測試：預設名稱、自訂名稱、編輯載入、清空重產生、超長拒絕，以及既有交易的類型不可切換。
+- [ ] 補 routing 測試，確認 `AccountManagerView` 進入 `AccountEditView-invest` 的股票模式。
+- [ ] 新建股票帳戶的初始成本／現值固定為 0；資金來源只列同幣別、未封存的一般帳戶。
+- [ ] 無符合資金來源時下拉選單 disabled 並顯示「無符合帳戶」，不可儲存。
+- [ ] 編輯時類型唯讀；有財務歷史時幣別唯讀。封存帳戶不可編輯，變更預設資金來源不改寫既有交易。
+- [ ] 回歸驗證新增、編輯、封存、重新啟用及仍被依賴時禁止封存。
+
+**驗證：** `flutter test test/data/accounts_test.dart test/ui_routing_test.dart`
+
+### 5. StockTransactionView 垂直切片
+
+- [ ] 建立 view 與 routing；可從 `StockView`、`StockDetailView`、股票 `AccountDetailView` 新增，並從股票事件編輯同一 transaction。
+- [ ] 表單最上方加入選填交易名稱，並實作股票、類型、台北日期時間、股票帳戶、資金來源、備註及依類型切換欄位。
+- [ ] 新建只能選 active securities；未同步或無結果時股票欄位 disabled、顯示「無符合股票」，並提供前往 `SettingView` 的操作。
+- [ ] 編輯載入保存名稱及原 security；類型唯讀。inactive security 顯示停用狀態並允許其他合法修改，但不出現在改選清單。
+- [ ] 股票或類型變更後，股票帳戶只列可執行交易且幣別相符的未封存帳戶；資金來源只列同幣別未封存一般帳戶。無選項時 disabled 並顯示「無符合帳戶」。
+- [ ] 買入／賣出顯示股數、單價與合併費用；股息只顯示股息金額。選擇股票帳戶後預填其預設資金來源。
+- [ ] 建立、修改、刪除呼叫既有 Data API；成功返回並重新載入，失敗保留表單，送出中防止重複提交。
+- [ ] widget/routing 測試只驗證入口、預填、欄位切換、disabled／empty、類型唯讀及成功返回，不測具體位置。
+
+**驗證：** `flutter test test/data/stock_transactions_test.dart test/ui_routing_test.dart`
+
+### Checkpoint B：可完成股票交易
+
+- [ ] 股票帳戶可建立，且只有合法資金來源可選。
+- [ ] 目錄同步後可完成買入、賣出及股息；兩個帳戶的投影、FIFO 與交易名稱一致。
+- [ ] 未同步、無相符帳戶、超賣、封存帳戶及 provider error 不留下部分寫入。
+
+### 6. StockView 總覽與行情同步
+
+- [ ] 以 `getStockOverview`／`listStockPositions` 實作 loading、empty、error、stale data；empty 提供新增交易入口。
+- [ ] 顯示持有中股票的 TWD 總成本、總現值、未實現損益與報酬率；缺行情／匯率時標示估值未齊全。
+- [ ] 股票列顯示台股中文名稱、美股代號，以及市場、成本、現值、未實現損益與報酬率；跨帳戶依 spec 合併。
+- [ ] 實作市場與未封存股票帳戶篩選，摘要與篩選清單一致；已結清區塊預設收合並保留累計已實現損益。
+- [ ] 同步按鈕呼叫 `refreshMarketData`；同步中保留資料並防止重複送出，完成後顯示時間、成功數與非阻斷式失敗。
+- [ ] 點選股票進入 `StockDetailView`；新增交易預填帳戶篩選，返回後保留篩選脈絡並重新查詢。
+- [ ] 測試空狀態、持有／結清入口、篩選、同步成功／部分失敗及 stale data。
+
+**驗證：** `flutter test test/data/data_api_integration_test.dart test/ui_routing_test.dart test/ui_smoke_test.dart`
+
+### 7. StockDetailView 明細與歷史
+
+- [ ] 以 `getStockDetail`／`listStockTransactions` 顯示名稱／代號、行情時間、股數、FIFO 成本、現值、未實現損益、賣出已實現損益及股息。
+- [ ] 顯示買入、賣出、股息歷史；交易名稱為主標題，依台北日期分組、按完整時間與 entry order 倒序。
+- [ ] 實作股票帳戶與事件類型篩選；篩選只影響呈現。
+- [ ] 點選事件進入 `StockTransactionView`；新增預填 security 與帳戶。涉及封存帳戶的事件只可瀏覽。
+- [ ] 已結清股票仍可開啟完整歷史；尚無報價時保留成本與歷史並明確標示。
+- [ ] 測試持有中、已結清、缺行情、封存事件及返回 `StockView`。
+
+**驗證：** `flutter test test/data/stock_transactions_test.dart test/ui_routing_test.dart`
+
+### 8. SettingView 股票代號更新
+
+- [ ] 直接新增「股票資料」區塊及「更新股票代號」按鈕，不導向或修改 `DataManagerView`。
+- [ ] 顯示同步進度並防止重複提交；完成後顯示新增、更新、停用、恢復、來源失敗摘要與最後成功時間。
+- [ ] 全部或部分來源失敗時保留既有目錄並提供重試；成功來源結果仍保存。
+- [ ] 從交易表單 empty state 導向 SettingView 時，能辨識並說明更新入口。
+- [ ] 測試同步成功、部分／全部失敗、重試及從交易表單導向。
 
 **驗證：** `flutter test test/ui_routing_test.dart`
 
-### 5. StockTransactionView 契約
+### Checkpoint C：端到端股票流程
 
-- [x] 更新 `docs/specs/StockTransactionView.md`：加入名稱輸入、30 字元驗證、台股／其他市場預設格式與只在空白儲存時產生的規則。
-- [x] 在 `StockTransactionView` 規格中明定新建時可選類型、編輯時類型唯讀，並由 Data API 拒絕變更既有股票交易類型。
-- [x] 更新股票 Data API 文件與測試，涵蓋台股名稱、其他市場代號、整數／小數股數、股息及自訂名稱。
-- [ ] 「在表單最上方加入交易名稱並完整往返 Data API」保持未完成，待 `StockTransactionView` 實作時完成；本任務不從零建立整套股票交易 UI。
+- [ ] SettingView 更新代號 → 建立股票帳戶 → 買入 → StockView 同步行情 → StockDetailView 查看 → 編輯／刪除交易可完整走通。
+- [ ] 零持股、封存帳戶及 inactive security 的行情與歷史符合規格。
+- [ ] 台股全流程使用中文名稱，美股主要顯示股票代號。
 
-**驗證：** `flutter test test/data/stock_transactions_test.dart test/data/data_api_integration_test.dart`
+### 9. 文件、備份與完整驗證
 
-### 6. CSV 備份、還原與版本相容性
-
-- [x] `TRANSACTIONS.csv` 匯出包含 `NAME`；匯入由 v2 table schema 驗證非空白與 30 字元上限。
-- [x] 備份 manifest version 與資料庫 schema version 同步升至 2，不再硬編碼版本 1。
-- [x] 依「只支援相容備份」規則，v2 程式明確拒絕 v1 備份，且不得改動目前資料庫。
-- [ ] 新增 v2 匯出／檢查／覆蓋還原測試，確認自訂及預設名稱保持不變，破損或超長名稱備份原子性拒絕。
-- [x] 更新 `docs/data_api.md` 的版本、欄位與相容性說明；`DataManagerView` 的既有「只接受相容備份」規則無需改動。
-
-**驗證：** `flutter test test/data/backup_and_restore_test.dart`
-
-### Checkpoint B：端到端資料流程
-
-- [x] 建立、編輯、列出、投影、匯出與還原皆使用同一保存名稱。
-- [x] migration 與備份還原不改變帳務數值或交易順序。
-- [x] v1 DB 已直接升級；v1 備份依相容性規則安全拒絕。
-
-### 7. 文件與完整驗證
-
-- [x] 同步更新 `AGENTS.md`、`docs/schema.md`、`docs/data_api.md`、`docs/specs/AccountTransactionView.md`、`docs/specs/StockTransactionView.md`、`docs/specs/AccountDetailView.md`、`docs/specs/StockDetailView.md` 與其他受影響文件；`DataManagerView` 既有相容備份規則無需改動。
-- [x] 移除既有文件中「編輯時可在同一交易族群切換類型」的舊規則，統一改為所有交易建立後類型不可變更。
-- [x] 更新 `docs/testing.md`；只有已建立且通過的測試標記 `[x]`。
-- [x] 執行全部聚焦測試、`flutter test`、`flutter analyze` 與 `git diff --check`。
-- [ ] 以既有 `flutter attach` session hot reload，人工確認 AccountTransactionView 名稱欄位、建立後清單標題、編輯保留、清空重產生及錯誤狀態。
-- [ ] 人工確認同一交易在投資帳戶與一般資金帳戶投影中顯示同一名稱。
+- [ ] 同步更新 `AGENTS.md`、`docs/schema.md`、`docs/data_api.md`、`docs/testing.md`、`SettingView.md`、`StockView.md`、`StockDetailView.md`、`StockTransactionView.md` 及受影響帳戶規格。
+- [ ] 更新 v3 CSV 匯出／檢查／覆蓋還原測試，確認 security 狀態、quote symbol、行情與交易關聯完整保留；不新增 snapshot 測試。
+- [ ] 執行全部聚焦測試、`flutter test`、`flutter analyze` 與 `git diff --check`。
+- [ ] 使用既有 `flutter attach` session hot reload，人工驗證目錄同步、股票帳戶、三種交易、總覽、明細、篩選、缺行情、部分失敗及 stale data。
+- [ ] 確認 diff 沒有修改 `ReportView`、新增 `GraphView`，或改動 snapshot 建立／更新／查詢邏輯。
 
 ## 完成條件
 
-- [x] 所有新建與 migration 後的交易都有非空白且不超過 30 個字元的保存名稱。
-- [x] 預設名稱只由 Data API 產生；UI、清單與備份不各自維護另一套規則。
-- [x] 已保存名稱不隨交易內容自動改變，清空後儲存才重新產生。
-- [x] 所有已實作交易 UI 的既有類型為唯讀，且任何繞過 UI 的 update 變更類型都會被原子性拒絕。
-- [x] 一般、投資及股票 Data API 的預設格式符合已確認規則。
-- [x] AccountTransactionView 與現有交易清單完成整合；StockTransactionView UI 待其畫面實作時依契約完成。
-- [x] 完整測試與靜態檢查通過，且沒有改變既有帳務計算。
+- [ ] SettingView 可同步目前台股上市／上櫃及美股 NASDAQ／NYSE／AMEX 代號，台股顯示中文名稱。
+- [ ] 下市證券不刪除歷史，不能用於新交易，再次出現時可恢復使用。
+- [ ] 未同步代號時無法新增股票交易；既有交易及 inactive securities 仍可瀏覽與合法編輯。
+- [ ] 股票帳戶及買入、賣出、股息可從指定入口建立、查看、編輯與刪除，帳戶選單只提供合法選項。
+- [ ] StockView 只同步曾有買賣的 securities，包含零持股及封存帳戶歷史，排除僅股息者；失敗不清除最後行情。
+- [ ] StockView／StockDetailView 的成本、現值、FIFO、損益及資金帳戶投影符合既有 schema 與測試。
+- [ ] loading、empty、error、partial failure 與 stale data 均可辨識、可重試且不造成資料遺失。
+- [ ] 所有測試與靜態檢查通過；`ReportView`、`GraphView` 與 snapshot 未納入此次實作。
