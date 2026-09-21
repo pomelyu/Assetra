@@ -141,6 +141,8 @@ final detail = await api.getAccountDetail(accountB);
 
 `StockBuyInput` 與 `AccountTransferInput` 是不可變輸入 class，分別屬於兩種交易輸入的 sealed class 家族。股息、轉帳等輸入不提供不適用的 fee 欄位。公開 API 中 `Money.units` 是實際幣別金額，`ShareQuantity.units` 是實際股數；呼叫端不接觸資料庫倍率。Data API 寫入時才將金額、匯率及股數轉為 schema 規定的整數，讀出時還原為實際數值。
 
+兩種 transaction input 的共通欄位包含可選 `name`。Data API 會 trim 名稱、拒絕超過 30 個字元的值，並在 null／空白時依交易類型與股票內容產生一次預設名稱；`AccountTransactionItem.name` 與 existing form input 回傳保存後的必填名稱。update 不允許改變既有 `KIND`，即使呼叫端繞過 UI 也會在刪除或重建事件前原子性拒絕。schema version 2 的 CSV 備份包含 `TRANSACTIONS.NAME`，只接受同為 version 2 的相容備份。
+
 ## 3. 案例一：A 使用 B 的資金買入台積電
 
 前提：A 是 TWD 股票帳戶，預設資金來源為 B；B 是 TWD 一般帳戶，兩者未封存。台積電標的已存在（市場 TW、代號 2330、幣別 TWD）。A、B、security2330 都是實際 UUID 的示意別名。以下日期僅為範例。
@@ -179,7 +181,7 @@ try {
 
 | Table | 欄位與範例值 |
 |---|---|
-| TRANSACTIONS | ID = t1、KIND = STOCK_BUY、OCCURRED_AT = 2026-09-11 10:00、ENTRY_ORDER = 系統分配的新增順序、UPDATED_AT = 寫入時 UTC 時間 |
+| TRANSACTIONS | ID = t1、NAME = 買入 台積電 10股、KIND = STOCK_BUY、OCCURRED_AT = 2026-09-11 10:00、ENTRY_ORDER = 系統分配的新增順序、UPDATED_AT = 寫入時 UTC 時間 |
 | STOCK_TRANSACTIONS | TRANSACTION_ID = t1、SECURITY_ID = security2330、STOCK_ACCOUNT_ID = A、FUNDING_ACCOUNT_ID = B、QUANTITY = 100000（10 股的 DB 內部值）、UNIT_PRICE = 2412、FEE = 10 |
 
 結果：A 的持股成本增加 **TWD 24,130**；B 的成本及現值各減少 **TWD 24,130**，允許變成負數。不另外建立 B 的支出事件，也不更新 ACCOUNTS 的初始值或存入衍生餘額。
@@ -212,7 +214,7 @@ try {
 
 | Table | 欄位與範例值 |
 |---|---|
-| TRANSACTIONS | ID = t2、KIND = ACCOUNT_TRANSFER、OCCURRED_AT = 2026-09-11 10:00、ENTRY_ORDER = 系統分配的新增順序、UPDATED_AT = 寫入時 UTC 時間 |
+| TRANSACTIONS | ID = t2、NAME = 轉帳、KIND = ACCOUNT_TRANSFER、OCCURRED_AT = 2026-09-11 10:00、ENTRY_ORDER = 系統分配的新增順序、UPDATED_AT = 寫入時 UTC 時間 |
 | ACCOUNT_TRANSACTIONS | TRANSACTION_ID = t2、SOURCE_ACCOUNT_ID = C、TARGET_ACCOUNT_ID = B、SOURCE_AMOUNT = 10000、TARGET_AMOUNT = 3200 |
 
 結果：C 的成本及現值各減少 **USD 100.00**；B 的成本及現值各增加 **TWD 3,200**。不儲存 FEE 或交易匯率、不呼叫行情供應商，也不另外產生收入／支出事件。若接續案例一，B 的合計變動為 **TWD -20,930**；原有初始值及其他交易不受影響。

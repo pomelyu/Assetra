@@ -222,6 +222,70 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
+  testWidgets('交易名稱可建立顯示、編輯保留並清空重產生', (WidgetTester tester) async {
+    final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
+    final api = await PortfolioDataApi.open(
+      databasePath: '${directory.path}/db.sqlite',
+    );
+    await api.createAccount(
+      const CreateAccountInput(
+        name: '名稱測試帳戶',
+        categoryId: 'default',
+        currencyCode: 'TWD',
+        initialCost: 0,
+        initialValue: 0,
+      ),
+    );
+
+    await tester.pumpWidget(
+      AssetraApp(locale: const Locale('zh', 'TW'), api: api),
+    );
+    await tester.tap(find.text('資產'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('名稱測試帳戶'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    final nameField = find.byKey(const Key('account-transaction-name'));
+    expect(nameField, findsOneWidget);
+    await tester.enterText(nameField, '  自訂薪資  ');
+    await tester.enterText(
+      find.byKey(const Key('account-transaction-amount')),
+      '100',
+    );
+    await tester.tap(find.text('儲存'));
+    await tester.pumpAndSettle();
+    expect(find.text('自訂薪資'), findsOneWidget);
+
+    await tester.tap(find.text('自訂薪資'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(nameField).controller!.text, '自訂薪資');
+    final kindDropdown = tester
+        .widget<DropdownButton<AccountTransactionFormKind>>(
+          find.byType(DropdownButton<AccountTransactionFormKind>),
+        );
+    expect(kindDropdown.value, AccountTransactionFormKind.income);
+    expect(kindDropdown.onChanged, isNull);
+
+    await tester.enterText(nameField, '   ');
+    await tester.tap(find.text('儲存'));
+    await tester.pumpAndSettle();
+    expect(find.text('收入'), findsOneWidget);
+
+    await tester.tap(find.text('收入'));
+    await tester.pumpAndSettle();
+    await tester.enterText(nameField, '1234567890123456789012345678901');
+    await tester.tap(find.text('儲存'));
+    await tester.pump();
+    expect(find.text('交易名稱不可超過 30 個字元'), findsOneWidget);
+    expect(find.text('編輯交易'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await api.close();
+    directory.deleteSync(recursive: true);
+  });
+
   testWidgets('投資帳戶詳情可建立買入並刷新投資與資金帳戶', (WidgetTester tester) async {
     final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
     final api = await PortfolioDataApi.open(
@@ -254,7 +318,7 @@ void main() {
         targetAccountId: cashId,
         amount: Money(currencyCode: 'USD', units: 20),
         fee: Money(currencyCode: 'USD', units: 1),
-        note: '投資賣出出帳',
+        name: '投資賣出出帳',
       ),
     );
     await api.createAccountTransaction(
@@ -263,7 +327,7 @@ void main() {
         investmentAccountId: investmentId,
         targetAccountId: cashId,
         amount: Money(currencyCode: 'USD', units: 5),
-        note: '投資利息入帳',
+        name: '投資利息入帳',
       ),
     );
     await api.createAccountTransaction(
@@ -271,7 +335,7 @@ void main() {
         occurredAt: '2026-01-01 09:02',
         investmentAccountId: investmentId,
         valueAdjustment: Money(currencyCode: 'USD', units: 10),
-        note: '正損益入帳',
+        name: '正損益入帳',
       ),
     );
     await api.createAccountTransaction(
@@ -279,7 +343,7 @@ void main() {
         occurredAt: '2026-01-01 09:03',
         investmentAccountId: investmentId,
         valueAdjustment: Money(currencyCode: 'USD', units: -3),
-        note: '負損益出帳',
+        name: '負損益出帳',
       ),
     );
 
@@ -404,7 +468,7 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
-  testWidgets('一般資金帳戶的投資投影可進入原交易且只能切換投資類型', (WidgetTester tester) async {
+  testWidgets('一般資金帳戶的投資投影可進入原交易且交易類型唯讀', (WidgetTester tester) async {
     final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
     final api = await PortfolioDataApi.open(
       databasePath: '${directory.path}/db.sqlite',
@@ -436,7 +500,7 @@ void main() {
         sourceAccountId: cashId,
         amount: Money(currencyCode: 'USD', units: 100),
         fee: Money(currencyCode: 'USD', units: 1),
-        note: '共同投影交易',
+        name: '共同投影交易',
       ),
     );
     await api.createAccountTransaction(
@@ -446,7 +510,7 @@ void main() {
         targetAccountId: cashId,
         amount: Money(currencyCode: 'USD', units: 20),
         fee: Money(currencyCode: 'USD', units: 1),
-        note: '資金賣出入帳',
+        name: '資金賣出入帳',
       ),
     );
     await api.createAccountTransaction(
@@ -455,7 +519,7 @@ void main() {
         investmentAccountId: investmentId,
         targetAccountId: cashId,
         amount: Money(currencyCode: 'USD', units: 5),
-        note: '資金利息入帳',
+        name: '資金利息入帳',
       ),
     );
 
@@ -484,16 +548,8 @@ void main() {
         .widget<DropdownButton<AccountTransactionFormKind>>(
           find.byType(DropdownButton<AccountTransactionFormKind>),
         );
-    expect(
-      kindDropdown.items!.map((item) => item.value),
-      AccountTransactionFormKind.values.where(
-        (kind) => ![
-          AccountTransactionFormKind.income,
-          AccountTransactionFormKind.expense,
-          AccountTransactionFormKind.transfer,
-        ].contains(kind),
-      ),
-    );
+    expect(kindDropdown.value, AccountTransactionFormKind.investmentBuy);
+    expect(kindDropdown.onChanged, isNull);
     expect(
       tester
           .widget<DropdownButton<String>>(

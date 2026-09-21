@@ -11,6 +11,7 @@ import 'models/data_api_exception.dart';
 import 'models/domain.dart';
 import 'models/money.dart';
 import 'src/database/portfolio_database.dart';
+import 'src/database/schema.dart';
 import 'src/ledger/arithmetic.dart';
 
 typedef BiometricAuthenticator = Future<bool> Function();
@@ -494,6 +495,9 @@ class PortfolioDataApi {
       if (id != null) {
         final old = _stockEvent(id);
         _requireEventAccountsActive(old);
+        if (old['KIND'] != _kindText(input.kind)) {
+          _conflict('Transaction type cannot be changed');
+        }
         order = old['ENTRY_ORDER'] as int;
         _database.raw.execute('DELETE FROM TRANSACTIONS WHERE ID=?', [id]);
       }
@@ -501,6 +505,7 @@ class PortfolioDataApi {
       if (id == null) order = _nextOrder();
       _insertParent(
         transactionId,
+        _transactionName(input.name, _defaultStockName(input, security)),
         input.kind,
         input.occurredAt,
         order,
@@ -616,6 +621,9 @@ class PortfolioDataApi {
       if (id != null) {
         final old = _accountEvent(id);
         _requireEventAccountsActive(old);
+        if (old['KIND'] != _kindText(input.kind)) {
+          _conflict('Transaction type cannot be changed');
+        }
         final order = old['ENTRY_ORDER'] as int;
         _database.raw.execute('DELETE FROM TRANSACTIONS WHERE ID=?', [id]);
         _insertAccountEvent(id, input, order);
@@ -697,7 +705,14 @@ class PortfolioDataApi {
       if (accountId != null) _requireActive(_account(accountId));
     }
     _validateAccountEventRelations(input);
-    _insertParent(id, input.kind, input.occurredAt, order, input.note);
+    _insertParent(
+      id,
+      _transactionName(input.name, _defaultAccountName(input.kind)),
+      input.kind,
+      input.occurredAt,
+      order,
+      input.note,
+    );
     _database.insert('ACCOUNT_TRANSACTIONS', fields);
   }
 
@@ -1408,6 +1423,49 @@ class PortfolioDataApi {
         'INVESTMENT_INTEREST',
         'INVESTMENT_PNL_ADJUSTMENT',
       ].indexOf(s)];
+  String _transactionName(String? input, String fallback) {
+    final name = input?.trim() ?? '';
+    final result = name.isEmpty ? fallback : name;
+    if (result.length > 30) {
+      _fail('Transaction name cannot exceed 30 characters');
+    }
+    if (result.trim().isEmpty) _fail('Transaction name cannot be blank');
+    return result;
+  }
+
+  String _defaultAccountName(TransactionKind kind) => switch (kind) {
+    TransactionKind.accountTransfer => '轉帳',
+    TransactionKind.accountIncome => '收入',
+    TransactionKind.accountExpense => '支出',
+    TransactionKind.investmentBuy => '投資買入',
+    TransactionKind.investmentSell => '投資賣出',
+    TransactionKind.investmentInterest => '利息',
+    TransactionKind.investmentPnlAdjustment => '損益調整',
+    _ => throw StateError('Stock kind is not an account transaction'),
+  };
+
+  String _defaultStockName(
+    StockTransactionInput input,
+    Map<String, Object?> security,
+  ) {
+    final label = security['MARKET_CODE'] == 'TW'
+        ? security['NAME'] as String
+        : security['SYMBOL'] as String;
+    if (input is StockDividendInput) return '$label 配息';
+    final quantity = input is StockBuyInput
+        ? input.quantity
+        : (input as StockSellInput).quantity;
+    final action = input is StockBuyInput ? '買入' : '賣出';
+    return '$action $label ${_shareText(quantity.scaledUnits)}股';
+  }
+
+  String _shareText(int scaledUnits) {
+    final whole = scaledUnits ~/ shareMultiplier;
+    final fraction = (scaledUnits % shareMultiplier).toString().padLeft(4, '0');
+    final trimmed = fraction.replaceFirst(RegExp(r'0+$'), '');
+    return trimmed.isEmpty ? '$whole' : '$whole.$trimmed';
+  }
+
   void _validateAccountFields(String name, String category, String currency) {
     if (name.trim().isEmpty) _fail('Account name cannot be blank');
     _requireCategory(category);
@@ -1444,12 +1502,14 @@ class PortfolioDataApi {
           as int);
   void _insertParent(
     String id,
+    String name,
     TransactionKind kind,
     String occurred,
     int order,
     String? note,
   ) => _database.insert('TRANSACTIONS', {
     'ID': id,
+    'NAME': name,
     'KIND': _kindText(kind),
     'OCCURRED_AT': occurred,
     'ENTRY_ORDER': order,
@@ -1645,6 +1705,7 @@ class PortfolioDataApi {
           .map(
             (r) => AccountTransactionItem(
               id: r['ID'] as String,
+              name: r['NAME'] as String,
               occurredAt: r['OCCURRED_AT'] as String,
               entryOrder: r['ENTRY_ORDER'] as int,
               kind: _kind(r['KIND'] as String),
@@ -2341,6 +2402,7 @@ class PortfolioDataApi {
   StockTransactionInput _decodeStockInput(Map<String, Object?> r) {
     ({
       String funding,
+      String name,
       String? note,
       String occurred,
       String security,
@@ -2351,18 +2413,21 @@ class PortfolioDataApi {
       String security,
       String stock,
       String funding,
+      String name,
       String? note,
     ) => (
       occurred: r['OCCURRED_AT'] as String,
       security: r['SECURITY_ID'] as String,
       stock: r['STOCK_ACCOUNT_ID'] as String,
       funding: r['FUNDING_ACCOUNT_ID'] as String,
+      name: r['NAME'] as String,
       note: r['NOTE'] as String?,
     );
-    final c = common('', '', '', '', null);
+    final c = common('', '', '', '', '', null);
     switch (r['KIND']) {
       case 'STOCK_BUY':
         return StockBuyInput(
+          name: c.name,
           occurredAt: c.occurred,
           securityId: c.security,
           stockAccountId: c.stock,
@@ -2380,6 +2445,7 @@ class PortfolioDataApi {
         );
       case 'STOCK_SELL':
         return StockSellInput(
+          name: c.name,
           occurredAt: c.occurred,
           securityId: c.security,
           stockAccountId: c.stock,
@@ -2397,6 +2463,7 @@ class PortfolioDataApi {
         );
       default:
         return StockDividendInput(
+          name: c.name,
           occurredAt: c.occurred,
           securityId: c.security,
           stockAccountId: c.stock,
@@ -2441,7 +2508,9 @@ class PortfolioDataApi {
   }
 
   AccountTransactionInput _decodeAccountInput(Map<String, Object?> r) {
-    final o = r['OCCURRED_AT'] as String, n = r['NOTE'] as String?;
+    final o = r['OCCURRED_AT'] as String,
+        name = r['NAME'] as String,
+        n = r['NOTE'] as String?;
     Money money(String account, int units) => Money.fromScaledUnits(
       currencyCode: _account(account)['CURRENCY_CODE'] as String,
       units: units,
@@ -2449,6 +2518,7 @@ class PortfolioDataApi {
     switch (r['KIND']) {
       case 'ACCOUNT_TRANSFER':
         return AccountTransferInput(
+          name: name,
           occurredAt: o,
           note: n,
           sourceAccountId: r['SOURCE_ACCOUNT_ID'] as String,
@@ -2464,6 +2534,7 @@ class PortfolioDataApi {
         );
       case 'ACCOUNT_INCOME':
         return AccountIncomeInput(
+          name: name,
           occurredAt: o,
           note: n,
           targetAccountId: r['TARGET_ACCOUNT_ID'] as String,
@@ -2474,6 +2545,7 @@ class PortfolioDataApi {
         );
       case 'ACCOUNT_EXPENSE':
         return AccountExpenseInput(
+          name: name,
           occurredAt: o,
           note: n,
           sourceAccountId: r['SOURCE_ACCOUNT_ID'] as String,
@@ -2485,6 +2557,7 @@ class PortfolioDataApi {
       case 'INVESTMENT_BUY':
         final i = r['INVESTMENT_ACCOUNT_ID'] as String;
         return InvestmentBuyInput(
+          name: name,
           occurredAt: o,
           note: n,
           investmentAccountId: i,
@@ -2495,6 +2568,7 @@ class PortfolioDataApi {
       case 'INVESTMENT_SELL':
         final i = r['INVESTMENT_ACCOUNT_ID'] as String;
         return InvestmentSellInput(
+          name: name,
           occurredAt: o,
           note: n,
           investmentAccountId: i,
@@ -2505,6 +2579,7 @@ class PortfolioDataApi {
       case 'INVESTMENT_INTEREST':
         final i = r['INVESTMENT_ACCOUNT_ID'] as String;
         return InvestmentInterestInput(
+          name: name,
           occurredAt: o,
           note: n,
           investmentAccountId: i,
@@ -2514,6 +2589,7 @@ class PortfolioDataApi {
       default:
         final i = r['INVESTMENT_ACCOUNT_ID'] as String;
         return InvestmentPnlAdjustmentInput(
+          name: name,
           occurredAt: o,
           note: n,
           investmentAccountId: i,
@@ -2963,7 +3039,7 @@ class PortfolioDataApi {
     }
     final manifest = jsonEncode({
       'format': 'assetra-backup',
-      'schemaVersion': '1',
+      'schemaVersion': '$schemaVersion',
       'createdAt': _utcNow(),
       'tables': _tables,
       'sha256': hashes,
@@ -3038,7 +3114,7 @@ class PortfolioDataApi {
       final version = _database.raw.select(
         "SELECT VALUE FROM SCHEMA_METADATA WHERE KEY='SCHEMA_VERSION'",
       );
-      if (version.length != 1 || version.first['VALUE'] != '1') {
+      if (version.length != 1 || version.first['VALUE'] != '$schemaVersion') {
         throw const DataApiException(
           DataErrorCode.incompatibleBackup,
           'Invalid schema version',
@@ -3062,7 +3138,7 @@ class PortfolioDataApi {
       final manifest =
           jsonDecode(files['manifest.json']!) as Map<String, dynamic>;
       if (manifest['format'] != 'assetra-backup' ||
-          manifest['schemaVersion'] != '1') {
+          manifest['schemaVersion'] != '$schemaVersion') {
         throw const FormatException();
       }
       final tables = (manifest['tables'] as List).cast<String>();

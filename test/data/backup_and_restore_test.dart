@@ -33,6 +33,14 @@ void main() {
     );
     expect(await api.captureWeeklySnapshots(snapshotDate: '2026-09-07'), 1);
     expect(await api.captureWeeklySnapshots(snapshotDate: '2026-09-10'), 0);
+    final namedTransaction = await api.createAccountTransaction(
+      AccountIncomeInput(
+        name: '備份測試收入',
+        occurredAt: '2026-09-10 10:00',
+        targetAccountId: account,
+        targetAmount: Money(currencyCode: 'TWD', units: 10),
+      ),
+    );
     final backup = '${directory.path}/backup.zip';
     await api.exportBackup(backup);
     await api.createAccountTransaction(
@@ -43,9 +51,15 @@ void main() {
       ),
     );
     final inspection = await api.inspectBackup(backup);
-    expect(inspection.schemaVersion, '1');
+    expect(inspection.schemaVersion, '2');
     await api.replaceFromBackup(backup);
-    expect((await api.getAccountDetail(account)).value!.units, 100);
+    expect((await api.getAccountDetail(account)).value!.units, 110);
+    expect(
+      (await api.getAccountTransactionForm(transactionId: namedTransaction))
+          .existing!
+          .name,
+      '備份測試收入',
+    );
     final trend = await api.getHistoricalTrend();
     expect(trend.points.first.baseValue, 100);
     expect(trend.points.last.isNow, isTrue);

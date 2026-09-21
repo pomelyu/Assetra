@@ -106,6 +106,7 @@ File: `test/data/stock_transactions_test.dart`
 - [x] 股票賣出依 FIFO 計算並分攤買入手續費
 - [x] 股息以單一事件增加現金與股票已實現損益
 - [x] 股票交易類型拒絕不相容的帳戶類型
+- [x] 股票交易預設名稱依市場與實際股數產生，且 update 不可變更既有類型
 - [x] 刪除早期買入導致後續賣出無效時完整回滾
 - [ ] 股票買入及賣出拒絕零股數或零價格
 - [ ] 股票交易拒絕負手續費
@@ -130,6 +131,7 @@ File: `test/data/general_account_transactions_test.dart`
 - [x] 一般帳戶收入增加成本與現值並拒絕負數
 - [x] 一般帳戶支出降低成本與現值並拒絕負數
 - [x] 一般帳戶交易類型拒絕股票及投資帳戶
+- [x] 一般交易名稱會 trim、空白時產生預設值、限制 30 字元，且 update 不可變更既有類型
 - [ ] 轉帳來源與目標相同時拒絕
 - [ ] 轉帳兩端金額拒絕零或負數
 - [ ] 收入及支出拒絕零金額
@@ -212,6 +214,7 @@ Planned file: `test/data/settings_test.dart`
 File: `test/data/backup_and_restore_test.dart`
 
 - [x] 每週快照不重複且備份可還原完整資料: 驗證同週唯一性、基本檢查、完整覆蓋與 now point。
+- [x] schema version 2 備份可保存並還原交易名稱
 - [ ] 每張資料表都匯出為 CSV 且 NULL 值可還原
 - [ ] Manifest 包含 table 清單、row count 及 checksum
 - [ ] 備份損壞、checksum 不符或缺少檔案時拒絕
@@ -265,5 +268,6 @@ File: `test/ui_routing_test.dart`
 - [x] 帳戶明細分別顯示已實現損益與未實現損益，且綁定正確欄位
 - [x] 一般資金帳戶的投資現金流投影可進入同一交易，且只允許投資族群切換
 - [x] 一般與投資帳戶的入帳／出帳依該交易對目前帳戶的金額增減分類，不依交易類型分類
+- [x] AccountTransactionView 可建立、載入及清空重產生交易名稱，拒絕超過 30 字元，且編輯時類型唯讀
 - [x] 投資利息保留於投資帳戶全部事件但不列入其入帳／出帳，資金帳戶投影仍列為入帳
 - [x] 從 AssetView 新增交易可選全部一般與投資類型，損益調整不顯示資金帳戶及費用

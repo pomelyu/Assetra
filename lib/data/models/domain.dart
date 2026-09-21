@@ -96,8 +96,9 @@ class ResolveSecurityInput {
 
 sealed class StockTransactionInput {
   final String occurredAt, securityId, stockAccountId, fundingAccountId;
-  final String? note;
+  final String? name, note;
   const StockTransactionInput({
+    this.name,
     required this.occurredAt,
     required this.securityId,
     required this.stockAccountId,
@@ -111,6 +112,7 @@ class StockBuyInput extends StockTransactionInput {
   final ShareQuantity quantity;
   final Money unitPrice, fee;
   const StockBuyInput({
+    super.name,
     required super.occurredAt,
     required super.securityId,
     required super.stockAccountId,
@@ -128,6 +130,7 @@ class StockSellInput extends StockTransactionInput {
   final ShareQuantity quantity;
   final Money unitPrice, fee;
   const StockSellInput({
+    super.name,
     required super.occurredAt,
     required super.securityId,
     required super.stockAccountId,
@@ -144,6 +147,7 @@ class StockSellInput extends StockTransactionInput {
 class StockDividendInput extends StockTransactionInput {
   final Money dividendAmount;
   const StockDividendInput({
+    super.name,
     required super.occurredAt,
     required super.securityId,
     required super.stockAccountId,
@@ -157,8 +161,12 @@ class StockDividendInput extends StockTransactionInput {
 
 sealed class AccountTransactionInput {
   final String occurredAt;
-  final String? note;
-  const AccountTransactionInput({required this.occurredAt, this.note});
+  final String? name, note;
+  const AccountTransactionInput({
+    this.name,
+    required this.occurredAt,
+    this.note,
+  });
   TransactionKind get kind;
 }
 
@@ -166,6 +174,7 @@ class AccountTransferInput extends AccountTransactionInput {
   final String sourceAccountId, targetAccountId;
   final Money sourceAmount, targetAmount;
   const AccountTransferInput({
+    super.name,
     required super.occurredAt,
     super.note,
     required this.sourceAccountId,
@@ -181,6 +190,7 @@ class AccountIncomeInput extends AccountTransactionInput {
   final String targetAccountId;
   final Money targetAmount;
   const AccountIncomeInput({
+    super.name,
     required super.occurredAt,
     super.note,
     required this.targetAccountId,
@@ -194,6 +204,7 @@ class AccountExpenseInput extends AccountTransactionInput {
   final String sourceAccountId;
   final Money sourceAmount;
   const AccountExpenseInput({
+    super.name,
     required super.occurredAt,
     super.note,
     required this.sourceAccountId,
@@ -207,6 +218,7 @@ class InvestmentBuyInput extends AccountTransactionInput {
   final String investmentAccountId, sourceAccountId;
   final Money amount, fee;
   const InvestmentBuyInput({
+    super.name,
     required super.occurredAt,
     super.note,
     required this.investmentAccountId,
@@ -222,6 +234,7 @@ class InvestmentSellInput extends AccountTransactionInput {
   final String investmentAccountId, targetAccountId;
   final Money amount, fee;
   const InvestmentSellInput({
+    super.name,
     required super.occurredAt,
     super.note,
     required this.investmentAccountId,
@@ -237,6 +250,7 @@ class InvestmentInterestInput extends AccountTransactionInput {
   final String investmentAccountId, targetAccountId;
   final Money amount;
   const InvestmentInterestInput({
+    super.name,
     required super.occurredAt,
     super.note,
     required this.investmentAccountId,
@@ -251,6 +265,7 @@ class InvestmentPnlAdjustmentInput extends AccountTransactionInput {
   final String investmentAccountId;
   final Money valueAdjustment;
   const InvestmentPnlAdjustmentInput({
+    super.name,
     required super.occurredAt,
     super.note,
     required this.investmentAccountId,
@@ -285,12 +300,13 @@ class AccountDetail {
 }
 
 class AccountTransactionItem {
-  final String id, occurredAt;
+  final String id, name, occurredAt;
   final int entryOrder;
   final TransactionKind kind;
   final String? note;
   const AccountTransactionItem({
     required this.id,
+    required this.name,
     required this.occurredAt,
     required this.entryOrder,
     required this.kind,

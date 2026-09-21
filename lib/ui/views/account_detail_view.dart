@@ -373,17 +373,6 @@ class _AccountDetailViewState extends State<AccountDetailView> {
     ),
   );
 
-  String _kindText(TransactionKind kind) => switch (kind) {
-    TransactionKind.accountIncome => '收入',
-    TransactionKind.accountExpense => '支出',
-    TransactionKind.accountTransfer => '轉帳',
-    TransactionKind.investmentBuy => '投資買入',
-    TransactionKind.investmentSell => '投資賣出',
-    TransactionKind.investmentInterest => '利息',
-    TransactionKind.investmentPnlAdjustment => '損益調整',
-    _ => '交易',
-  };
-
   bool _matchesFilter(bool? isIncoming) {
     return switch (_flowFilter) {
       AccountFlowFilter.all => true,
@@ -451,9 +440,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  item.note?.isNotEmpty == true
-                      ? item.note!
-                      : _kindText(item.kind),
+                  item.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w700),

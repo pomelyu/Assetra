@@ -196,6 +196,89 @@ void main() {
     );
   });
 
+  test('股票預設名稱依市場與實際股數產生', () async {
+    final cash = await api.createAccount(
+      const CreateAccountInput(
+        name: 'cash',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 100,
+        initialValue: 100,
+      ),
+    );
+    final stock = await api.createInvestmentAccount(
+      CreateInvestmentAccountInput(
+        name: 'stock',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 0,
+        initialValue: 0,
+        accountType: AccountType.stock,
+        fundingAccountId: cash,
+      ),
+    );
+    final tw = await api.resolveSecurity(
+      const ResolveSecurityInput(
+        symbol: '2330',
+        name: '台積電',
+        marketCode: 'TW',
+        currencyCode: 'USD',
+      ),
+    );
+    final us = await api.resolveSecurity(
+      const ResolveSecurityInput(
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        marketCode: 'US',
+        currencyCode: 'USD',
+      ),
+    );
+    final twBuy = await api.createStockTransaction(
+      StockBuyInput(
+        occurredAt: '2026-09-11 09:00',
+        securityId: tw,
+        stockAccountId: stock,
+        fundingAccountId: cash,
+        quantity: ShareQuantity(units: 1.25),
+        unitPrice: Money(currencyCode: 'USD', units: 10),
+        fee: Money(currencyCode: 'USD', units: 0),
+      ),
+    );
+    await api.createStockTransaction(
+      StockDividendInput(
+        occurredAt: '2026-09-11 09:01',
+        securityId: us,
+        stockAccountId: stock,
+        fundingAccountId: cash,
+        dividendAmount: Money(currencyCode: 'USD', units: 1),
+      ),
+    );
+
+    expect(
+      (await api.listStockTransactions(tw)).items.single.name,
+      '買入 台積電 1.25股',
+    );
+    expect((await api.listStockTransactions(us)).items.single.name, 'AAPL 配息');
+    await expectLater(
+      api.updateStockTransaction(
+        twBuy,
+        StockSellInput(
+          occurredAt: '2026-09-11 09:00',
+          securityId: tw,
+          stockAccountId: stock,
+          fundingAccountId: cash,
+          quantity: ShareQuantity(units: 1.25),
+          unitPrice: Money(currencyCode: 'USD', units: 10),
+          fee: Money(currencyCode: 'USD', units: 0),
+        ),
+      ),
+      throwsA(isA<DataApiException>()),
+    );
+    final unchanged = (await api.listStockTransactions(tw)).items.single;
+    expect(unchanged.kind, TransactionKind.stockBuy);
+    expect(unchanged.name, '買入 台積電 1.25股');
+  });
+
   test('股票交易類型拒絕不相容的帳戶類型', () async {
     final general = await api.createAccount(
       const CreateAccountInput(

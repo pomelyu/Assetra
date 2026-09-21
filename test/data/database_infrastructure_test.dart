@@ -9,7 +9,7 @@ void main() {
     final path = '${directory.path}/test.sqlite';
     final db = PortfolioDatabase.open(path);
     try {
-      expect(db.rows('SCHEMA_METADATA').single['VALUE'], '1');
+      expect(db.rows('SCHEMA_METADATA').single['VALUE'], '2');
       expect(
         db.rows('CATEGORIES').map((row) => row['NAME']),
         ['未分類', '存款', '投資'],
@@ -18,6 +18,7 @@ void main() {
         () => db.atomic(() {
           db.insert('TRANSACTIONS', {
             'ID': 'event',
+            'NAME': '買入測試',
             'KIND': 'STOCK_BUY',
             'OCCURRED_AT': '2026-01-01 10:00',
             'ENTRY_ORDER': 1,

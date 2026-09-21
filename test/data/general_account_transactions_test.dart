@@ -92,6 +92,90 @@ void main() {
     );
   });
 
+  test('交易名稱會正規化、空白時產生預設值並限制三十字', () async {
+    final account = await api.createAccount(
+      const CreateAccountInput(
+        name: 'cash',
+        categoryId: 'default',
+        currencyCode: 'TWD',
+        initialCost: 0,
+        initialValue: 0,
+      ),
+    );
+    final custom = await api.createAccountTransaction(
+      AccountIncomeInput(
+        name: '  薪資收入  ',
+        occurredAt: '2026-09-11 09:00',
+        targetAccountId: account,
+        targetAmount: Money(currencyCode: 'TWD', units: 100),
+      ),
+    );
+    final generated = await api.createAccountTransaction(
+      AccountExpenseInput(
+        name: '   ',
+        occurredAt: '2026-09-11 09:01',
+        sourceAccountId: account,
+        sourceAmount: Money(currencyCode: 'TWD', units: 10),
+      ),
+    );
+
+    final items = (await api.listAccountTransactions(account)).items;
+    expect(items.singleWhere((item) => item.id == custom).name, '薪資收入');
+    expect(items.singleWhere((item) => item.id == generated).name, '支出');
+    expect(
+      (await api.getAccountTransactionForm(transactionId: custom))
+          .existing!
+          .name,
+      '薪資收入',
+    );
+    await expectLater(
+      api.createAccountTransaction(
+        AccountIncomeInput(
+          name: 'a' * 31,
+          occurredAt: '2026-09-11 09:02',
+          targetAccountId: account,
+          targetAmount: Money(currencyCode: 'TWD', units: 1),
+        ),
+      ),
+      throwsA(isA<DataApiException>()),
+    );
+  });
+
+  test('既有一般交易不可透過 update 變更類型', () async {
+    final account = await api.createAccount(
+      const CreateAccountInput(
+        name: 'cash',
+        categoryId: 'default',
+        currencyCode: 'TWD',
+        initialCost: 100,
+        initialValue: 100,
+      ),
+    );
+    final id = await api.createAccountTransaction(
+      AccountIncomeInput(
+        occurredAt: '2026-09-11 09:00',
+        targetAccountId: account,
+        targetAmount: Money(currencyCode: 'TWD', units: 10),
+      ),
+    );
+
+    await expectLater(
+      api.updateAccountTransaction(
+        id,
+        AccountExpenseInput(
+          occurredAt: '2026-09-11 09:00',
+          sourceAccountId: account,
+          sourceAmount: Money(currencyCode: 'TWD', units: 10),
+        ),
+      ),
+      throwsA(isA<DataApiException>()),
+    );
+    final item = (await api.listAccountTransactions(account)).items.single;
+    expect(item.kind, TransactionKind.accountIncome);
+    expect(item.name, '收入');
+    expect((await api.getAccountDetail(account)).value!.units, 110);
+  });
+
   test('一般帳戶支出降低成本與現值並拒絕負數', () async {
     final account = await api.createAccount(
       const CreateAccountInput(

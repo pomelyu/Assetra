@@ -46,6 +46,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
   AccountTransactionFormKind _kind = AccountTransactionFormKind.income;
   String? _source, _target;
   String? _investmentAccount, _fundingAccount;
+  final _name = TextEditingController();
   final _amount = TextEditingController();
   final _targetAmount = TextEditingController();
   final _fee = TextEditingController(text: '0');
@@ -59,6 +60,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
 
   @override
   void dispose() {
+    _name.dispose();
     _amount.dispose();
     _targetAmount.dispose();
     _fee.dispose();
@@ -109,12 +111,18 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
 
   Future<void> _save(List<AccountDetail> accounts) async {
     final api = widget.api;
+    final name = _name.text;
     final amount = double.tryParse(_amount.text);
     final targetAmount = double.tryParse(_targetAmount.text);
     final fee = double.tryParse(_fee.text);
     final isInvestment = _isInvestmentKind(_kind);
     final needsFunding =
         _kind != AccountTransactionFormKind.investmentPnlAdjustment;
+    if (name.trim().length > 30) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('交易名稱不可超過 30 個字元')));
+      return;
+    }
     if (api == null ||
         amount == null ||
         (isInvestment &&
@@ -143,6 +151,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
       final note = _note.text.trim().isEmpty ? null : _note.text.trim();
       final input = switch (_kind) {
         AccountTransactionFormKind.income => AccountIncomeInput(
+          name: name,
           occurredAt: _occurredAt.text,
           targetAccountId: _target!,
           targetAmount: Money(
@@ -152,6 +161,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
           note: note,
         ),
         AccountTransactionFormKind.expense => AccountExpenseInput(
+          name: name,
           occurredAt: _occurredAt.text,
           sourceAccountId: _source!,
           sourceAmount: Money(
@@ -161,6 +171,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
           note: note,
         ),
         AccountTransactionFormKind.transfer => AccountTransferInput(
+          name: name,
           occurredAt: _occurredAt.text,
           sourceAccountId: _source!,
           targetAccountId: _target!,
@@ -175,6 +186,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
           note: note,
         ),
         AccountTransactionFormKind.investmentBuy => InvestmentBuyInput(
+          name: name,
           occurredAt: _occurredAt.text,
           investmentAccountId: _investmentAccount!,
           sourceAccountId: _fundingAccount!,
@@ -189,6 +201,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
           note: note,
         ),
         AccountTransactionFormKind.investmentSell => InvestmentSellInput(
+          name: name,
           occurredAt: _occurredAt.text,
           investmentAccountId: _investmentAccount!,
           targetAccountId: _fundingAccount!,
@@ -204,6 +217,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
         ),
         AccountTransactionFormKind.investmentInterest =>
           InvestmentInterestInput(
+            name: name,
             occurredAt: _occurredAt.text,
             investmentAccountId: _investmentAccount!,
             targetAccountId: _fundingAccount!,
@@ -215,6 +229,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
           ),
         AccountTransactionFormKind.investmentPnlAdjustment =>
           InvestmentPnlAdjustmentInput(
+            name: name,
             occurredAt: _occurredAt.text,
             investmentAccountId: _investmentAccount!,
             valueAdjustment: Money(
@@ -302,6 +317,7 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
       _investmentAccount = input.investmentAccountId;
       _amount.text = input.valueAdjustment.units.toString();
     }
+    _name.text = input.name ?? '';
     _note.text = input.note ?? '';
     _occurredAt.text = input.occurredAt;
     _initialized = true;
@@ -500,6 +516,11 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             children: [
               _section('交易屬性', [
+                _textRow(
+                  textFieldKey: const Key('account-transaction-name'),
+                  label: '交易名稱',
+                  controller: _name,
+                ),
                 _dropdownRow<AccountTransactionFormKind>(
                   label: '交易類型',
                   value: _kind,
@@ -511,9 +532,11 @@ class _AccountTransactionViewState extends State<AccountTransactionView> {
                         ),
                       )
                       .toList(),
-                  onChanged: (kind) {
-                    if (kind != null) _changeKind(kind, accounts);
-                  },
+                  onChanged: widget.transactionId == null
+                      ? (kind) {
+                          if (kind != null) _changeKind(kind, accounts);
+                        }
+                      : null,
                 ),
                 _textRow(
                   label: '交易日期與時間',

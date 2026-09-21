@@ -89,6 +89,7 @@ Rules:
 ## TRANSACTIONS
 
 - ID (TEXT PRIMARY KEY): Stable economic-event UUID shared by every view projection.
+- NAME (TEXT NOT NULL): Persisted transaction name after trimming; must contain 1–30 characters. When create/update receives null, empty or whitespace-only input, Data API generates and stores the default name described below.
 - KIND (TEXT NOT NULL): One of `STOCK_BUY`, `STOCK_SELL`, `STOCK_DIVIDEND`, `ACCOUNT_TRANSFER`, `ACCOUNT_INCOME`, `ACCOUNT_EXPENSE`, `INVESTMENT_BUY`, `INVESTMENT_SELL`, `INVESTMENT_INTEREST`, `INVESTMENT_PNL_ADJUSTMENT`.
 - OCCURRED_AT (TEXT NOT NULL): User-entered transaction time as `YYYY-MM-DD HH:mm`, interpreted in Asia/Taipei; minute precision, no seconds.
 - ENTRY_ORDER (INTEGER NOT NULL UNIQUE): System-assigned positive insertion sequence, allocated atomically; immutable on edits and preserved in backup/restore. It is not a timestamp or user-editable field.
@@ -98,11 +99,16 @@ Rules:
 Rules:
 
 - New forms default to the current Taipei minute; users may change it. Reject future transaction times for creation and edits; scheduled or pending transactions are out of scope.
+- Transaction kind is selected only on creation and is immutable afterward. Every update must match the persisted KIND or fail atomically.
+- Default general/manual-investment names are the localized transaction-type labels: 「轉帳」、「收入」、「支出」、「投資買入」、「投資賣出」、「利息」 and 「損益調整」.
+- Default stock names are 「買入 xxx n股」、「賣出 xxx n股」 and 「xxx 配息」. For `MARKET_CODE = TW`, xxx is the security display name; all other markets use SYMBOL. Quantity uses display units with unnecessary trailing zeroes removed.
+- A generated or custom name is saved once and does not follow later account, amount, security or quantity edits. Clearing it on update regenerates it from the immutable kind and updated transaction content.
 - Replay events in ascending `(OCCURRED_AT, ENTRY_ORDER)` order; same-minute trades use insertion order. Edits retain ENTRY_ORDER, including date/time edits. Allocate new orders after the greatest retained order, including after restore; never use UPDATED_AT or random UUID order to break ties.
 - Reject creation, editing or deletion if any participating account is archived. For edits, check accounts referenced both before and after the change; reactivation is required first.
 - Exactly one matching subtype row must exist in either `STOCK_TRANSACTIONS` or `ACCOUNT_TRANSACTIONS`.
 - Editing or deleting an event and all of its effects is one SQLite transaction.
 - Deleting an event removes its subtype row; derived balances, positions and FIFO results are recalculated.
+- Schema version 2 adds NAME. Opening a version-1 database migrates and backfills every existing transaction in one SQLite transaction before updating `SCHEMA_METADATA`; incompatible or incomplete rows roll back the migration.
 
 ## STOCK_TRANSACTIONS
 
