@@ -1,107 +1,137 @@
-# 實作投資帳戶相關功能
+# 新增交易名稱
 
-完成手動投資帳戶（`INVESTMENT`）的端到端 UI 流程，包含帳戶建立與管理、資產總覽、帳戶明細，以及買入、賣出、利息與損益調整交易。
+為所有一般、投資及股票交易加入正式的「交易名稱」。交易名稱由使用者選填；未填時由 Data API 依交易內容產生一次預設名稱並保存，作為各交易清單的主要辨識文字。
 
-## 範圍與基礎
+## 已確認規格
 
-1. 本階段實作一般帳戶（`GENERAL`）與投資帳戶（`INVESTMENT`）共存的 UI 流程，不開放股票帳戶（`STOCK`）的建立或交易入口。
-2. 沿用現有 `PortfolioDataApi`、SQLite schema 與投資交易計算規則；若實作時發現必須變更 Data API 或資料庫，應先停止並取得使用者同意。
-3. UI 依 `docs/prototype`、`docs/schema.md` 與各 view spec 實作；若 prototype 與 schema 或 spec 衝突，以 schema 與 spec 為準。
-4. 一般帳戶既有功能必須保持可用，不得因加入投資帳戶而改變現有帳務語意或 routing。
-5. 帳目相關行為依 `docs/testing.md` 與現有 data tests 驗證；UI 只新增 routing 與必要的狀態測試，不測試元件的具體位置。
+- `TRANSACTIONS` 新增持久化交易名稱欄位，不是 UI 顯示時才產生的 fallback。
+- `AccountTransactionView` 與 `StockTransactionView` 的最上方皆提供「交易名稱」輸入欄位。
+- 儲存前移除頭尾空白；空字串或純空白視為未填。
+- 自訂名稱最多 30 個字元；UI 與 Data API 都必須拒絕超長內容，不得截斷。
+- 一般及投資交易未填名稱時，依儲存當下的類型產生：「轉帳」、「收入」、「支出」、「投資買入」、「投資賣出」、「利息」或「損益調整」。
+- 股票交易未填名稱時：
+  - 買入：`買入 xxx n股`
+  - 賣出：`賣出 xxx n股`
+  - 股息：`xxx 配息`
+- `xxx` 在台股（`MARKET_CODE = TW`）使用標的顯示名稱；其他市場一律使用股票代號。
+- 股數使用公開 API 的實際值，保留必要小數並移除無意義尾零，例如 `10股`、`1.25股`。
+- 預設名稱只在 create／update 收到空白名稱時產生並寫入。已保存名稱不因股票、帳戶、金額或股數等內容變更而自動更新；使用者再次清空並儲存時，才依原交易類型及修改後內容重新產生。
+- 交易類型只在建立交易時選擇；任何一般、投資或股票交易建立後皆不可變更類型。編輯時交易類型須唯讀，Data API 也必須拒絕以 update 改變既有 `KIND`。
+- 交易清單以交易名稱作為主要文字；備註仍是獨立欄位，不再代替交易名稱。
+- 既有資料庫升級時直接執行 migration，依每筆既有交易內容回填預設名稱。
 
-## 已確認的產品規則
+## 現況與範圍界線
 
-- AccountManagerView 新增帳戶時，本階段只提供「一般帳戶」與「投資帳戶」；不顯示股票帳戶選項。
-- 從 AssetView 的「＋」進入 AccountTransactionView 時，可選一般與投資的全部交易類型。
-- 從一般帳戶詳情新增交易時，只顯示收入、支出與轉帳；從投資帳戶詳情新增交易時，只顯示買入、賣出、利息與損益調整，並預填目前投資帳戶。
-- 交易類型變更時，各帳戶下拉選單只能顯示該類型允許的帳戶；原選值若不再有效必須清除。
-- 投資買入、賣出與利息先依投資帳戶幣別，篩選同幣別、未封存的一般帳戶，並預設選中該投資帳戶的 `FUNDING_ACCOUNT_ID`；使用者可改選其他符合條件的一般帳戶。
-- 損益調整不顯示一般資金帳戶。
-- 建立新投資帳戶時，改選幣別必須立即重新篩選資金來源，並清除不相容選值。若無符合帳戶，資金來源下拉選單停用並顯示「無符合帳戶」。
-- 投資買入、賣出與利息在一般資金帳戶中顯示對應現金流投影；兩個 view 共用同一交易 ID，編輯或刪除會同步更新兩端。
-- 編輯既有交易時可變更為同一族群的其他類型；一般交易與投資交易不可互相轉換。
+- 現有 schema version 為 1，`TRANSACTIONS` 尚無名稱欄位。
+- `PortfolioDatabase.open` 目前只有建表與 seed，尚無既有 table migration 流程；本任務必須建立原子性的 v1 → v2 migration。
+- `StockTransactionInput`、`AccountTransactionInput`、create/update/form/list API 與 CSV 備份皆受影響。
+- `AccountTransactionView` 已實作，可完整加入名稱欄位。
+- 目前沒有 `StockTransactionView` 實作，`StockView` 仍是占位畫面。本任務包含股票名稱的資料契約、預設值、migration、清單資料與測試；不從零建立整套股票交易 UI。未來實作該 view 時必須依本文件加入名稱欄位。
+- 不改變交易金額、成本、現值、已實現／未實現損益、投影、重播、FIFO 或快照計算。
+- 不因本功能主動改寫既有名稱；只有使用者清空後儲存才重新產生。
 
-## 明確不在本次範圍
+## 實作原則
 
-- 估值快照（snapshot）的建立、更新、查詢或測試。
-- ReportView 的 graph view、趨勢圖、配置圖或其他報表視覺化。
-- 股票帳戶的建立、編輯、明細、交易或行情。
-- 帳戶建立後的幣別變更；這是後續會影響多份 spec 的獨立任務，本次不修改相關規格或行為。
-- 在投資帳戶表單中嵌套新增一般帳戶流程。
-
-## 驗證與測試原則
-
-- 實作帳務行為前，先對照 `docs/testing.md`；若未有測試則先建立失敗的單元測試，通過後同步勾選。
-- UI 測試聚焦 routing、入口可用性、表單初始狀態及切換後的可用帳戶；不斷言元件具體座標或排版細節。
-- 每個階段先執行相關聚焦測試，最後執行 `flutter analyze`、`flutter test` 與 `git diff --check`。
-- Flutter UI 修改期間依 `Agents.md` 使用 `flutter attach` 與 hot reload；若 attach 失敗立即停止並回報。
+- 依 `docs/testing.md` 先新增失敗測試，再實作最小修改。
+- 預設名稱由 Data API 產生與驗證，不能只依賴 UI。
+- 一筆經濟事件只有一份 `TRANSACTIONS.NAME`；各帳戶中的投影共用相同名稱。
+- migration、create 與 update 必須原子化；失敗不得留下部分資料。
+- migration 回填須依 parent transaction、subtype 與 security 關聯取得完整內容，不以備註代替名稱。
+- 每階段先跑聚焦測試；最後執行 `flutter analyze`、`flutter test` 與 `git diff --check`。
 
 ## 階段任務
 
-### 1. 基礎契約與現況驗證
+### 1. Schema 契約與 migration
 
-- [x] 對照 `docs/schema.md`、`docs/data_api.md` 與現有 data tests，確認建立／編輯投資帳戶、四種投資交易、交易投影與重播驗證的 Data API 可直接使用。
-- [x] 依 `codegraph` 確認 AccountManagerView、AccountEditView、AccountTransactionView、AssetView、AccountDetailView 與 `PortfolioDataApi` 的依賴路徑，並記錄必須修改的最小檔案範圍。
-- [x] 若現有 Data API 無法支援已確認行為，停止實作並向使用者說明需要變更的 API／schema，不自行擴張資料層範圍。
+- [ ] 更新 `docs/schema.md`：在 `TRANSACTIONS` 定義 `NAME`、非空白、最多 30 個字元、正規化與預設名稱規則。
+- [ ] 將程式 schema version 由 1 升為 2，讓新資料庫直接建立含名稱約束的 `TRANSACTIONS`。
+- [ ] 建立 v1 → v2 migration：在單一 transaction 中加入欄位、回填所有既有交易、建立約束，成功後才更新 `SCHEMA_METADATA`。
+- [ ] 股票回填時，台股使用 `SECURITIES.NAME`，其他市場使用 `SECURITIES.SYMBOL`；買賣包含格式化股數，股息不含股數。
+- [ ] migration 遇到缺少 subtype/security 或無法產生合法名稱時整體回滾並回報錯誤。
+- [ ] 新增 migration 測試：各交易類型回填正確，ID、順序、備註與明細不變，重新開啟不重複執行，失敗會回滾。
 
-### 2. AccountManagerView 與帳戶類型分流
+**驗證：** `flutter test test/data/database_infrastructure_test.dart`
 
-- [x] AccountManagerView 清單顯示一般與投資帳戶的名稱、類型、分類、幣別、狀態，以及投資帳戶的預設資金來源。
-- [x] 新增帳戶流程只提供一般與投資帳戶；一般帳戶使用 AccountEditView，投資帳戶使用 AccountEditView-invest，不顯示股票帳戶選項。
-- [x] 點選未封存投資帳戶進入 AccountEditView-invest；封存與重新啟用行為沿用現有帳戶管理規則。
-- [x] 建立、編輯、封存或重新啟用完成後，返回 AccountManagerView 並重新載入清單；失敗時保留當前畫面並顯示原因。
+### 2. 公開 model、驗證與預設名稱
 
-### 3. AccountEditView-invest
+- [ ] 在 `StockTransactionInput` 與 `AccountTransactionInput` 共通欄位加入可選 `name`，existing form decode 回傳保存名稱。
+- [ ] 在 `AccountTransactionItem` 加入必填名稱，使清單不需自行推測標題。
+- [ ] 建立單一內部正規化流程：trim、空白時產生預設名稱、超過 30 字元拋出 `DataApiException`；create/update 共用。
+- [ ] 一般／投資預設名稱只依當次 `TransactionKind` 產生；非空名稱保持不變。
+- [ ] 股票預設名稱依 market、名稱／代號、方向與實際股數產生；台股使用顯示名稱，其他市場使用代號，股數不得顯示縮放整數或多餘尾零。
+- [ ] update 時比對既有 `TRANSACTIONS.KIND` 與 input kind；不同時原子性拒絕，不得刪除或重建原事件，也不得改變名稱、順序、帳務或投影。
+- [ ] 新增 Data API 測試：各類型預設、自訂 trim、30 字元邊界、31 字元拒絕、空白重產生、修改其他欄位不改名稱，以及一般／投資／股票交易變更類型皆被拒絕且原資料不變。
 
-- [x] 建立投資帳戶時可輸入名稱、分類、幣別、初始成本、初始價值、資金來源與備註，並透過現有 Data API 建立 `INVESTMENT` 帳戶。
-- [x] 新建表單改選幣別時，只列出同幣別、未封存的一般帳戶，並清除已不相容的資金來源選值。
-- [x] 無符合的資金來源時，下拉選單為 disabled 並顯示「無符合帳戶」，且不能儲存投資帳戶。
-- [x] 編輯未封存投資帳戶時載入已保存的名稱、分類、幣別、初始成本、初始價值、預設資金來源與備註；帳戶類型維持唯讀。
-- [x] 編輯初始值或預設資金來源時，沿用現有全歷史重播與驗證規則；無效修改整筆拒絕並保留表單。
+**驗證：** `flutter test test/data/general_account_transactions_test.dart test/data/manual_investment_transactions_test.dart test/data/stock_transactions_test.dart`
 
-### 4. AssetView 與 AccountDetailView
+### Checkpoint A：資料契約
 
-- [x] AssetView 同時顯示未封存的一般與投資帳戶，投資帳戶列以原始幣別顯示成本、現值、收益與收益率，不重複計入資金帳戶投影。
-- [x] 點選投資帳戶進入 AccountDetailView，顯示投資帳戶摘要、已實現／未實現損益與依日期排序的投資交易。
-- [x] 投資帳戶詳情的新增交易入口進入 AccountTransactionView，只提供買入、賣出、利息與損益調整，並預填目前投資帳戶。
-- [x] 一般資金帳戶的明細會顯示投資買入、賣出與利息的現金流投影；點選投影進入同一交易 ID 的 AccountTransactionView。
-- [x] 損益調整只顯示在投資帳戶明細，不在一般帳戶建立現金流投影。
-- [x] 投資帳戶明細的編輯帳戶入口進入 AccountEditView-invest；封存期間保持只讀且不提供新增交易。
+- [ ] 新資料庫與 v1 升級資料庫都保證每筆交易有合法名稱。
+- [ ] create/update/form/list API 可完整往返名稱。
+- [ ] 既有帳務重播、投影、FIFO 與回滾測試保持通過。
 
-### 5. AccountTransactionView 的類型與候選帳戶
+### 3. 寫入、清單與投影整合
 
-- [x] 交易類型加入投資買入、賣出、利息與損益調整；從 AssetView 進入時同時提供三種一般交易與四種投資交易。
-- [x] 從帳戶詳情進入時，交易類型清單依帳戶類型限制；編輯既有交易時只能在原交易族群內變更類型。
-- [x] 切換交易類型時重建對應的帳戶候選清單，並清除不再符合帳戶類型、封存狀態或幣別條件的選值。
-- [x] 投資買入、賣出與利息的投資帳戶下拉選單只列出未封存的 `INVESTMENT` 帳戶；資金帳戶只列出同幣別、未封存的 `GENERAL` 帳戶。
-- [x] 選定投資帳戶後，買入、賣出與利息預設帶入該帳戶的 `FUNDING_ACCOUNT_ID`；使用者可改選其他符合條件的一般帳戶。
-- [x] 損益調整只顯示投資帳戶與調整金額，不顯示資金帳戶或費用欄位。
-- [x] 無任何適用帳戶時顯示「尚未建立資料」；只缺少某一必要候選集時，對應下拉選單 disabled 並顯示「無符合帳戶」。
+- [ ] 修改一般、投資與股票寫入流程，將正規化名稱與 parent transaction 原子性保存。
+- [ ] update 使用呼叫端名稱；只有 null／空白才依更新後內容產生新預設名稱。
+- [ ] `listAccountTransactions` 與 `listStockTransactions` 回傳保存名稱；同一事件的各帳戶投影顯示相同名稱。
+- [ ] 帳戶明細交易列以 `item.name` 為主要文字；備註保留為獨立資料，不再作為標題 fallback。
+- [ ] 新增投影回歸測試：跨帳戶只有一個 parent name，編輯同步，刪除與失敗回滾不留下不一致名稱。
 
-### 6. 四種投資交易表單
+**驗證：** `flutter test test/data/transactions_test.dart test/ui_routing_test.dart`
 
-- [x] 實作買入：投資帳戶、扣款一般帳戶、日期時間、`AMOUNT`、`FEE` 與備註。
-- [x] 實作賣出：投資帳戶、入款一般帳戶、日期時間、`AMOUNT`、`FEE` 與備註。
-- [x] 實作利息：投資帳戶、入款一般帳戶、日期時間、`AMOUNT` 與備註。
-- [x] 實作損益調整：投資帳戶、日期時間、調整到輸入金額，或是可正可負的 `VALUE_ADJUSTMENT` 與備註；不顯示資金帳戶或費用欄位。
-- [x] 儲存時依表單類型建立對應 input 並直接呼叫 create/update；失敗時保留表單與使用者輸入，成功後返回並刷新受影響帳戶。
-- [x] 編輯既有投資交易時完整載入類型、帳戶、日期時間、金額、費用與備註；可切換為其他投資交易類型，但不可切換為一般交易。
-- [x] 刪除投資交易時同步移除投資帳戶與一般資金帳戶的投影；若會使後續交易無效，整筆拒絕並保留原資料。
+### 4. AccountTransactionView
 
-### 7. Routing 與回歸驗證
+- [ ] 在表單最上方加入選填「交易名稱」，最多 30 字元，並提供穩定 semantic key。
+- [ ] 新建時名稱保持空白並交由 Data API 生成，UI 不複製生成規則。
+- [ ] 編輯時載入保存名稱；改變帳戶、金額或其他可編輯內容時不自動修改名稱。
+- [ ] 編輯既有交易時將交易類型顯示為唯讀，不提供切換選項；新建交易時仍可選擇適用類型。
+- [ ] 清空名稱後儲存時傳入空值，由 Data API 依原交易類型及修改後內容重產生；再次開啟須顯示新名稱。
+- [ ] 超過 30 字元時顯示可恢復錯誤並保留表單；Data API 仍有第二層驗證。
+- [ ] 新增 widget/routing 測試：欄位位置、預設名稱、自訂名稱、編輯不更新、清空重產生、超長拒絕，以及既有交易的類型不可切換。
 
-- [x] 新增 routing 測試：AccountManagerView 新增投資帳戶 → AccountEditView-invest → 儲存後返回並刷新 AccountManagerView。
-- [x] 新增 routing 測試：AssetView 點選投資帳戶 → AccountDetailView，新增交易時進入限制為投資類型的 AccountTransactionView。
-- [x] 新增 routing 測試：從一般資金帳戶的投資現金流投影進入原投資交易，返回後刷新詳情。
-- [x] 驗證從 AssetView 進入時可選全部一般／投資交易，從一般或投資帳戶詳情進入時只顯示對應交易族群。
-- [x] 驗證切換交易類型或投資帳戶後，帳戶下拉選單候選值、預設值與 disabled 狀態符合帳戶類型、幣別與封存規則。
-- [x] 同步更新 `docs/testing.md`，只將已有且通過的測試項目標記為 `[x]`。
+**驗證：** `flutter test test/ui_routing_test.dart`
 
-### 8. 完整驗證與收尾
+### 5. StockTransactionView 契約
 
-- [x] 確認一般帳戶的建立、編輯、詳情與三種交易流程無回歸。
-- [x] 確認投資帳戶的建立、編輯、封存／重新啟用、總覽、明細與四種交易可端到端完成。
-- [x] 確認本次 diff 不包含 snapshot、ReportView graph、股票帳戶或已建立帳戶幣別變更。
-- [x] 執行所有相關聚焦測試、`flutter analyze`、`flutter test` 與 `git diff --check`。
-- [ ] 使用 `flutter attach` 與 hot reload 完成 iOS Simulator 人工驗證：一般／投資帳戶分流、資金來源篩選、四種交易表單、投影導覽與錯誤狀態。
+- [ ] 更新 `docs/specs/StockTransactionView.md`：加入名稱輸入、30 字元驗證、台股／其他市場預設格式與只在空白儲存時產生的規則。
+- [ ] 在 `StockTransactionView` 規格中明定新建時可選類型、編輯時類型唯讀，並由 Data API 拒絕變更既有股票交易類型。
+- [ ] 更新股票 Data API 文件與測試，涵蓋台股名稱、其他市場代號、整數／小數股數、股息及自訂名稱。
+- [ ] 「在表單最上方加入交易名稱並完整往返 Data API」保持未完成，待 `StockTransactionView` 實作時完成；本任務不從零建立整套股票交易 UI。
+
+**驗證：** `flutter test test/data/stock_transactions_test.dart test/data/data_api_integration_test.dart`
+
+### 6. CSV 備份、還原與版本相容性
+
+- [ ] `TRANSACTIONS.csv` 匯出包含 `NAME`；匯入驗證欄位順序、非空白與 30 字元上限。
+- [ ] 備份 manifest version 與資料庫 schema version 同步升至 2，不再硬編碼版本 1。
+- [ ] 依「只支援相容備份」規則，v2 程式明確拒絕 v1 備份，且不得改動目前資料庫。
+- [ ] 新增 v2 匯出／檢查／覆蓋還原測試，確認自訂及預設名稱保持不變，破損或超長名稱備份原子性拒絕。
+- [ ] 更新 `docs/specs/DataManagerView.md` 與 `docs/data_api.md` 的版本、欄位與相容性說明。
+
+**驗證：** `flutter test test/data/backup_and_restore_test.dart`
+
+### Checkpoint B：端到端資料流程
+
+- [ ] 建立、編輯、列出、投影、匯出與還原皆使用同一保存名稱。
+- [ ] migration 與備份還原不改變帳務數值或交易順序。
+- [ ] v1 DB 可升級；v1 備份依相容性規則安全拒絕。
+
+### 7. 文件與完整驗證
+
+- [ ] 同步更新 `Agents.md`、`docs/schema.md`、`docs/data_api.md`、`docs/specs/AccountTransactionView.md`、`docs/specs/StockTransactionView.md`、`docs/specs/AccountDetailView.md`、`docs/specs/StockDetailView.md`、`docs/specs/DataManagerView.md` 及其他受影響文件。
+- [ ] 移除既有文件中「編輯時可在同一交易族群切換類型」的舊規則，統一改為所有交易建立後類型不可變更。
+- [ ] 更新 `docs/testing.md`；只有已建立且通過的測試可標記 `[x]`。
+- [ ] 執行全部聚焦測試、`flutter test`、`flutter analyze` 與 `git diff --check`。
+- [ ] 以既有 `flutter attach` session hot reload，人工確認 AccountTransactionView 名稱欄位、建立後清單標題、編輯保留、清空重產生及錯誤狀態。
+- [ ] 人工確認同一交易在投資帳戶與一般資金帳戶投影中顯示同一名稱。
+
+## 完成條件
+
+- [ ] 所有新建與 migration 後的交易都有非空白且不超過 30 個字元的保存名稱。
+- [ ] 預設名稱只由 Data API 產生；UI、清單與備份不各自維護另一套規則。
+- [ ] 已保存名稱不隨交易內容自動改變，清空後儲存才重新產生。
+- [ ] 所有既有交易的類型在 UI 為唯讀，且任何繞過 UI 的 update 變更類型都會被原子性拒絕。
+- [ ] 一般、投資及股票 Data API 的預設格式符合已確認規則。
+- [ ] AccountTransactionView 與現有交易清單完成整合；StockTransactionView UI 待其畫面實作時依契約完成。
+- [ ] 完整測試與靜態檢查通過，且沒有改變既有帳務計算。
