@@ -9,11 +9,18 @@ void main() {
     final path = '${directory.path}/test.sqlite';
     final db = PortfolioDatabase.open(path);
     try {
-      expect(db.rows('SCHEMA_METADATA').single['VALUE'], '2');
+      expect(db.rows('SCHEMA_METADATA').single['VALUE'], '3');
+      final securityColumns = db.raw.select('PRAGMA table_info(SECURITIES)');
       expect(
-        db.rows('CATEGORIES').map((row) => row['NAME']),
-        ['未分類', '存款', '投資'],
+        securityColumns.map((row) => row['name']),
+        containsAll(['CATALOG_SOURCE', 'IS_ACTIVE']),
       );
+      expect(db.rows('SECURITY_CATALOG_SOURCES'), isEmpty);
+      expect(db.rows('CATEGORIES').map((row) => row['NAME']), [
+        '未分類',
+        '存款',
+        '投資',
+      ]);
       expect(
         () => db.atomic(() {
           db.insert('TRANSACTIONS', {

@@ -31,7 +31,7 @@ void main() {
     expect(find.text('選擇帳戶類型'), findsOneWidget);
     expect(find.text('一般帳戶'), findsOneWidget);
     expect(find.text('投資帳戶'), findsOneWidget);
-    expect(find.text('股票帳戶'), findsNothing);
+    expect(find.text('股票帳戶'), findsOneWidget);
     await tester.tap(find.text('一般帳戶'));
     await tester.pumpAndSettle();
     expect(find.text('新增一般帳戶'), findsOneWidget);
@@ -58,6 +58,175 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('新增投資帳戶'), findsOneWidget);
+  });
+
+  testWidgets('帳戶管理可選擇新增股票帳戶並以零初始值建立', (WidgetTester tester) async {
+    final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
+    final api = await PortfolioDataApi.open(
+      databasePath: '${directory.path}/db.sqlite',
+    );
+    await api.createAccount(
+      const CreateAccountInput(
+        name: '台幣資金',
+        categoryId: 'default',
+        currencyCode: 'TWD',
+        initialCost: 1000,
+        initialValue: 1000,
+      ),
+    );
+    await tester.pumpWidget(
+      AssetraApp(locale: const Locale('zh', 'TW'), api: api),
+    );
+
+    await tester.tap(find.text('設定'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('帳戶管理'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('account-manager-add-account')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('股票帳戶'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新增股票帳戶'), findsOneWidget);
+    expect(find.text('初始成本'), findsNothing);
+    expect(find.text('初始價值'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await api.close();
+    directory.deleteSync(recursive: true);
+  });
+
+  testWidgets('股票頁可進入股票交易並依股票幣別篩選帳戶', (WidgetTester tester) async {
+    final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
+    final api = await PortfolioDataApi.open(
+      databasePath: '${directory.path}/db.sqlite',
+    );
+    final usdCash = await api.createAccount(
+      const CreateAccountInput(
+        name: '美元資金',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 1000,
+        initialValue: 1000,
+      ),
+    );
+    await api.createAccount(
+      const CreateAccountInput(
+        name: '台幣資金',
+        categoryId: 'default',
+        currencyCode: 'TWD',
+        initialCost: 1000,
+        initialValue: 1000,
+      ),
+    );
+    await api.createInvestmentAccount(
+      CreateInvestmentAccountInput(
+        name: '美股帳戶',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 0,
+        initialValue: 0,
+        accountType: AccountType.stock,
+        fundingAccountId: usdCash,
+      ),
+    );
+    await api.resolveSecurity(
+      const ResolveSecurityInput(
+        symbol: 'AAPL',
+        name: 'Apple',
+        marketCode: 'US',
+        currencyCode: 'USD',
+        quoteSymbol: 'AAPL',
+      ),
+    );
+    await tester.pumpWidget(
+      AssetraApp(locale: const Locale('zh', 'TW'), api: api),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('stock-add-transaction')));
+    await tester.pumpAndSettle();
+    expect(find.text('新增股票交易'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('stock-transaction-security')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('AAPL').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('stock-transaction-stock-account')));
+    await tester.pumpAndSettle();
+    expect(find.text('美股帳戶'), findsOneWidget);
+    expect(find.text('台幣資金'), findsNothing);
+    await tester.tap(find.text('美股帳戶'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('stock-transaction-funding-account')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('美元資金'), findsWidgets);
+    expect(find.text('台幣資金'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await api.close();
+    directory.deleteSync(recursive: true);
+  });
+
+  testWidgets('股票交易返回後可重新載入且不回傳 Future 給 setState', (
+    WidgetTester tester,
+  ) async {
+    final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
+    final api = await PortfolioDataApi.open(
+      databasePath: '${directory.path}/db.sqlite',
+    );
+    await tester.pumpWidget(
+      AssetraApp(locale: const Locale('zh', 'TW'), api: api),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('stock-add-transaction')));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox());
+    await api.close();
+    directory.deleteSync(recursive: true);
+  });
+
+  testWidgets('行情同步分開顯示股票與匯率失敗數', (WidgetTester tester) async {
+    final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
+    final api = await PortfolioDataApi.open(
+      databasePath: '${directory.path}/db.sqlite',
+      marketDataRefresher: (_) async => const MarketRefreshResult(
+        quoteSuccesses: 1,
+        rateSuccesses: 0,
+        failures: [
+          'QQQ: quote unavailable',
+          'USD/TWD: exchange rate unavailable',
+        ],
+      ),
+    );
+    await tester.pumpWidget(
+      AssetraApp(locale: const Locale('zh', 'TW'), api: api),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('stock-refresh-market-data')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('更新 1 檔股票；1 檔股票失敗；匯率更新失敗；保留最後行情'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await api.close();
+    directory.deleteSync(recursive: true);
+  });
+
+  testWidgets('設定頁直接提供更新股票代號入口', (WidgetTester tester) async {
+    await tester.pumpWidget(const AssetraApp(locale: Locale('zh', 'TW')));
+    await tester.tap(find.text('設定'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('setting-sync-stock-catalog')), findsOneWidget);
+    expect(find.text('更新股票代號'), findsOneWidget);
   });
 
   testWidgets('新增投資帳戶會依幣別篩選資金來源並在儲存後刷新帳戶管理', (WidgetTester tester) async {

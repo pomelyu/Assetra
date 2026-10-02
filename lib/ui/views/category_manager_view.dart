@@ -28,7 +28,12 @@ class _CategoryManagerViewState extends State<CategoryManagerView> {
 
   Future<List<CategorySummary>> _load() async =>
       widget.api == null ? [] : widget.api!.listCategories();
-  void _refresh() => setState(() => _categories = _load());
+  void _refresh() {
+    setState(() {
+      _categories = _load();
+    });
+  }
+
   void _showError(Object error) {
     if (mounted) {
       ScaffoldMessenger.of(context)

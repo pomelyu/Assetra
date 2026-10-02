@@ -79,12 +79,23 @@ Rules:
 - MARKET_CODE (TEXT NOT NULL): Stable market code such as `TW` or `US`.
 - CURRENCY_CODE (TEXT NOT NULL): Trading and quote currency.
 - QUOTE_SYMBOL (TEXT NULL): Optional external provider lookup symbol.
+- CATALOG_SOURCE (TEXT NOT NULL): `TWSE`, `TPEX`, `NASDAQ_LISTED`, `NASDAQ_OTHER` or `MANUAL`.
+- IS_ACTIVE (INTEGER NOT NULL): Whether the security may be selected for a new transaction.
 - UPDATED_AT (TEXT NOT NULL): UTC timestamp set on creation and refreshed on each modification.
 
 Rules:
 
 - `(MARKET_CODE, SYMBOL)` is unique using normalized uppercase values.
 - Securities with transactions are retained even after all positions are closed.
+- Catalog synchronization upserts names and quote symbols. A security missing from a successfully fetched source is marked inactive, never deleted; a failed source does not deactivate its old rows.
+- Inactive securities remain readable and editable through their existing transactions, but are excluded from new-transaction search choices.
+
+## SECURITY_CATALOG_SOURCES
+
+- SOURCE (TEXT PRIMARY KEY): One of the four non-manual catalog sources.
+- LAST_SUCCESS_AT (TEXT NOT NULL): UTC timestamp of that source's latest complete successful fetch.
+
+Schema version 3 adds catalog source and active state to securities. Opening a version-2 database migrates existing securities as active `MANUAL` rows in the same opening transaction.
 
 ## TRANSACTIONS
 
@@ -288,7 +299,7 @@ Public numeric precision:
 
 - `getStockOverview(marketCode?, stockAccountId?) -> StockOverview`: Fetch filtered active and closed positions, optional TWD totals and `isValuationComplete`.
 - `listStockPositions(marketCode?, stockAccountId?, cursor?, limit) -> Page<StockPositionSummary>`: Page through the filtered position list.
-- `refreshMarketData() -> MarketRefreshResult`: Refresh quotes and rates without discarding last successful data on failure.
+- `refreshMarketData() -> MarketRefreshResult`: Refresh securities that have at least one buy/sell event, including closed positions, inactive securities and archived accounts; dividend-only securities are excluded. Refresh USD/TWD when needed and retain every last successful value on failure.
 
 ## StockDetailView
 
@@ -298,8 +309,9 @@ Public numeric precision:
 ## StockTransactionView
 
 - `getStockTransactionForm(transactionId?) -> StockTransactionFormData`: Return the security choices and, when editing, the decoded existing transaction. Account choices and funding defaults are not part of this DTO.
-- `searchSecurities(query, marketCode?, limit) -> List<SecurityOption>`: Find existing securities by case-insensitive symbol or name, optionally restricted by market.
-- `resolveSecurity(input) -> SecurityId`: Validate and create a previously unknown market/symbol pair before its first transaction, or return the existing stable ID.
+- `searchSecurities(query, marketCode?, limit) -> List<SecurityOption>`: Find active securities by case-insensitive symbol or name, optionally restricted by market. Editing forms separately retain their existing inactive selection.
+- `syncSecurityCatalog() -> StockCatalogSyncResult`: Fetch TWSE, TPEX, NASDAQ-listed and NASDAQ-other sources independently; safely upsert successful sources and report additions, updates, deactivations, reactivations and per-source failures.
+- `resolveSecurity(input) -> SecurityId`: Import/testing helper that creates a previously unknown market/symbol pair or returns its stable ID. Transaction views must not call it; new transactions select only active catalog entries returned by `searchSecurities`.
 - `previewStockTransaction(input) -> StockTransactionPreview`: Validate the candidate values and return only the calculated settlement amount without writing. FIFO effects are validated again by create/update.
 - `createStockTransaction(input) -> TransactionId`: Atomically create the stock event and funding-account projection.
 - `updateStockTransaction(transactionId, input) -> void`: Atomically replace editable values and revalidate all affected later FIFO events.
@@ -349,7 +361,7 @@ Public numeric precision:
 
 ## Market data boundary
 
-- `refreshMarketData() -> MarketRefreshResult`: Invoke the injected market-data refresher. The result contains quote-success count, rate-success count and failure messages; when no refresher was injected, throw `DataApiException` with the `unavailable` error code.
+- `refreshMarketData() -> MarketRefreshResult`: Use an injected override when supplied; otherwise query Yahoo Finance for the tracked buy/sell set and required USD/TWD rate, with TWSE MIS, NASDAQ quote API and a keyless USD/TWD source as fallbacks. The result contains quote/rate success counts and item failures.
 - `saveStockPrice(securityId, price, quotedAt) -> void`: Insert or replace the latest successful positive quote. `price` must use the security currency; `quotedAt` is converted to UTC.
 - `saveExchangeRate(fromCurrencyCode, rate, quotedAt) -> void`: Insert or replace the latest successful non-TWD-to-TWD rate. `rate` is a positive actual value with at most two decimals; `quotedAt` is converted to UTC.
 

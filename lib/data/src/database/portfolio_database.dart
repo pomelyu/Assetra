@@ -51,11 +51,32 @@ class PortfolioDatabase {
       "SELECT VALUE FROM SCHEMA_METADATA WHERE KEY='SCHEMA_VERSION'",
     );
     if (rows.isEmpty) return;
-    final version = int.tryParse(rows.single['VALUE'] as String);
+    var version = int.tryParse(rows.single['VALUE'] as String);
     if (version == schemaVersion) return;
-    if (version != 1) {
+    if (version == 1) {
+      _migrateV1ToV2(database);
+      version = 2;
+    }
+    if (version == 2) {
+      database.execute(
+        "ALTER TABLE SECURITIES ADD COLUMN CATALOG_SOURCE TEXT NOT NULL DEFAULT 'MANUAL' "
+        "CHECK(CATALOG_SOURCE IN ('TWSE','TPEX','NASDAQ_LISTED','NASDAQ_OTHER','MANUAL'))",
+      );
+      database.execute(
+        'ALTER TABLE SECURITIES ADD COLUMN IS_ACTIVE INTEGER NOT NULL DEFAULT 1 '
+        'CHECK(IS_ACTIVE IN (0,1))',
+      );
+      database.execute(
+        "UPDATE SCHEMA_METADATA SET VALUE='3' WHERE KEY='SCHEMA_VERSION'",
+      );
+      return;
+    }
+    if (version != schemaVersion) {
       throw StateError('Unsupported schema version: $version');
     }
+  }
+
+  static void _migrateV1ToV2(Database database) {
     database.execute(
       "ALTER TABLE TRANSACTIONS ADD COLUMN NAME TEXT NOT NULL DEFAULT '交易' "
       "CHECK(trim(NAME) <> '' AND length(NAME) <= 30)",
@@ -109,7 +130,7 @@ class PortfolioDatabase {
     }
     database.execute(
       "UPDATE SCHEMA_METADATA SET VALUE=? WHERE KEY='SCHEMA_VERSION'",
-      ['$schemaVersion'],
+      ['2'],
     );
   }
 
@@ -127,6 +148,7 @@ class PortfolioDatabase {
       'CATEGORIES',
       'ACCOUNTS',
       'SECURITIES',
+      'SECURITY_CATALOG_SOURCES',
       'TRANSACTIONS',
       'STOCK_TRANSACTIONS',
       'ACCOUNT_TRANSACTIONS',

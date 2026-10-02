@@ -10,6 +10,8 @@ import 'package:uuid/uuid.dart';
 import 'models/data_api_exception.dart';
 import 'models/domain.dart';
 import 'models/money.dart';
+import 'providers/stock_catalog_provider.dart';
+import 'providers/yahoo_market_data_provider.dart';
 import 'src/database/portfolio_database.dart';
 import 'src/database/schema.dart';
 import 'src/ledger/arithmetic.dart';
@@ -25,6 +27,8 @@ class PortfolioDataApi {
   final Uuid _uuid;
   final BiometricAuthenticator? _authenticateBiometric;
   final MarketDataRefresher? _marketDataRefresher;
+  final StockCatalogProvider? _stockCatalogProvider;
+  final StockMarketDataProvider _stockMarketDataProvider;
   bool _closed = false;
 
   PortfolioDataApi._(
@@ -33,6 +37,8 @@ class PortfolioDataApi {
     this._uuid,
     this._authenticateBiometric,
     this._marketDataRefresher,
+    this._stockCatalogProvider,
+    this._stockMarketDataProvider,
   );
 
   /// Opens and initializes the portfolio data store.
@@ -62,6 +68,8 @@ class PortfolioDataApi {
     DateTime Function()? now,
     BiometricAuthenticator? authenticateBiometric,
     MarketDataRefresher? marketDataRefresher,
+    StockCatalogProvider? stockCatalogProvider,
+    StockMarketDataProvider? stockMarketDataProvider,
   }) async {
     return PortfolioDataApi._(
       PortfolioDatabase.open(databasePath),
@@ -69,6 +77,8 @@ class PortfolioDataApi {
       const Uuid(),
       authenticateBiometric,
       marketDataRefresher,
+      stockCatalogProvider ?? HttpStockCatalogProvider(),
+      stockMarketDataProvider ?? YahooMarketDataProvider(),
     );
   }
 
@@ -360,7 +370,10 @@ class PortfolioDataApi {
     );
   }
 
-  /// Finds a security by market and symbol or creates it when absent.
+  /// Imports a security by market and symbol, or returns it when already present.
+  ///
+  /// Transaction forms must use active entries from [searchSecurities] instead;
+  /// this helper exists for compatible imports and deterministic test fixtures.
   ///
   /// Parameters
   /// ----------
@@ -404,6 +417,8 @@ class PortfolioDataApi {
       'MARKET_CODE': market,
       'CURRENCY_CODE': input.currencyCode,
       'QUOTE_SYMBOL': input.quoteSymbol,
+      'CATALOG_SOURCE': 'MANUAL',
+      'IS_ACTIVE': 1,
       'UPDATED_AT': _utcNow(),
     });
     return id;
@@ -1242,13 +1257,233 @@ class PortfolioDataApi {
   ///     If no market-data refresher is configured.
   Future<MarketRefreshResult> refreshMarketData() async {
     final refresh = _marketDataRefresher;
-    if (refresh == null) {
-      throw const DataApiException(
-        DataErrorCode.unavailable,
-        'No market data provider configured',
+    if (refresh != null) return refresh(this);
+    _ensureOpen();
+    final securities = _database.raw.select('''
+      SELECT DISTINCT E.ID,E.SYMBOL,E.QUOTE_SYMBOL,E.CURRENCY_CODE
+      FROM STOCK_TRANSACTIONS S
+      JOIN TRANSACTIONS T ON T.ID=S.TRANSACTION_ID
+      JOIN SECURITIES E ON E.ID=S.SECURITY_ID
+      WHERE T.KIND IN ('STOCK_BUY','STOCK_SELL')''');
+    final failures = <String>[];
+    final requested = <String>{};
+    for (final security in securities) {
+      final quoteSymbol = (security['QUOTE_SYMBOL'] as String?)?.trim();
+      if (quoteSymbol == null || quoteSymbol.isEmpty) {
+        failures.add('${security['SYMBOL']}: missing quote symbol');
+      } else {
+        requested.add(quoteSymbol.toUpperCase());
+      }
+    }
+    final needsUsdRate = securities.any(
+      (security) => security['CURRENCY_CODE'] == 'USD',
+    );
+    if (needsUsdRate) requested.add('USDTWD=X');
+    Map<String, StockQuote> quotes;
+    try {
+      quotes = await _stockMarketDataProvider.fetchQuotes(requested);
+    } catch (error) {
+      return MarketRefreshResult(
+        quoteSuccesses: 0,
+        rateSuccesses: 0,
+        failures: [...failures, error.toString()],
       );
     }
-    return refresh(this);
+    var successes = 0;
+    for (final security in securities) {
+      final quoteSymbol = (security['QUOTE_SYMBOL'] as String?)
+          ?.trim()
+          .toUpperCase();
+      if (quoteSymbol == null || quoteSymbol.isEmpty) continue;
+      final quote = quotes[quoteSymbol];
+      if (quote == null) {
+        failures.add('${security['SYMBOL']}: quote unavailable');
+        continue;
+      }
+      if (quote.currencyCode != security['CURRENCY_CODE']) {
+        failures.add('${security['SYMBOL']}: quote currency mismatch');
+        continue;
+      }
+      try {
+        final multiplier = moneyMultipliers[quote.currencyCode]!;
+        final roundedPrice = (quote.price * multiplier).round() / multiplier;
+        await saveStockPrice(
+          securityId: security['ID'] as String,
+          price: Money(currencyCode: quote.currencyCode, units: roundedPrice),
+          quotedAt: quote.quotedAt,
+        );
+        successes++;
+      } catch (error) {
+        failures.add('${security['SYMBOL']}: $error');
+      }
+    }
+    var rateSuccesses = 0;
+    if (needsUsdRate) {
+      final rate = quotes['USDTWD=X'];
+      if (rate == null) {
+        failures.add('USD/TWD: exchange rate unavailable');
+      } else {
+        try {
+          final roundedRate =
+              (rate.price * exchangeRateMultiplier).round() /
+              exchangeRateMultiplier;
+          await saveExchangeRate(
+            fromCurrencyCode: 'USD',
+            rate: roundedRate,
+            quotedAt: rate.quotedAt,
+          );
+          rateSuccesses = 1;
+        } catch (error) {
+          failures.add('USD/TWD: $error');
+        }
+      }
+    }
+    return MarketRefreshResult(
+      quoteSuccesses: successes,
+      rateSuccesses: rateSuccesses,
+      failures: failures,
+    );
+  }
+
+  /// Synchronizes the locally stored security catalog from all configured sources.
+  ///
+  /// Parameters
+  /// ----------
+  /// `None`
+  ///
+  /// Returns
+  /// -------
+  /// `Future<StockCatalogSyncResult>`
+  ///     Per-run changes, source failures, and last successful source timestamps.
+  ///
+  /// Raises
+  /// ------
+  /// `DataApiException`
+  ///     If no catalog provider is configured. Individual source failures are
+  ///     reported in the result without discarding successful sources.
+  Future<StockCatalogSyncResult> syncSecurityCatalog() async {
+    _ensureOpen();
+    final provider = _stockCatalogProvider;
+    if (provider == null) {
+      throw const DataApiException(
+        DataErrorCode.unavailable,
+        'No stock catalog provider configured',
+      );
+    }
+    var added = 0, updated = 0, deactivated = 0, reactivated = 0;
+    final failures = <StockCatalogSource, String>{};
+    for (final source in StockCatalogSource.values) {
+      try {
+        final entries = await provider.fetch(source);
+        final counts = _database.atomic(() {
+          var sourceAdded = 0, sourceUpdated = 0;
+          var sourceDeactivated = 0, sourceReactivated = 0;
+          final seen = <String>{};
+          for (final entry in entries) {
+            final symbol = entry.symbol.trim().toUpperCase();
+            final name = entry.name.trim();
+            final market = entry.marketCode.trim().toUpperCase();
+            final currency = entry.currencyCode.trim().toUpperCase();
+            final quoteSymbol = entry.quoteSymbol.trim().toUpperCase();
+            if (symbol.isEmpty ||
+                name.isEmpty ||
+                quoteSymbol.isEmpty ||
+                !moneyMultipliers.containsKey(currency)) {
+              continue;
+            }
+            final key = '$market\u0000$symbol';
+            if (!seen.add(key)) continue;
+            final rows = _database.raw.select(
+              'SELECT * FROM SECURITIES WHERE MARKET_CODE=? AND SYMBOL=?',
+              [market, symbol],
+            );
+            if (rows.isEmpty) {
+              _database.insert('SECURITIES', {
+                'ID': _uuid.v4(),
+                'SYMBOL': symbol,
+                'NAME': name,
+                'MARKET_CODE': market,
+                'CURRENCY_CODE': currency,
+                'QUOTE_SYMBOL': quoteSymbol,
+                'CATALOG_SOURCE': _catalogSourceValue(source),
+                'IS_ACTIVE': 1,
+                'UPDATED_AT': _utcNow(),
+              });
+              sourceAdded++;
+            } else {
+              final old = rows.single;
+              if (old['CURRENCY_CODE'] != currency) {
+                _conflict('Existing security has another currency');
+              }
+              final wasActive = old['IS_ACTIVE'] == 1;
+              final changed =
+                  old['NAME'] != name ||
+                  old['QUOTE_SYMBOL'] != quoteSymbol ||
+                  old['CATALOG_SOURCE'] != _catalogSourceValue(source) ||
+                  !wasActive;
+              if (changed) {
+                _database.raw.execute(
+                  'UPDATE SECURITIES SET NAME=?,QUOTE_SYMBOL=?,CATALOG_SOURCE=?,IS_ACTIVE=1,UPDATED_AT=? WHERE ID=?',
+                  [
+                    name,
+                    quoteSymbol,
+                    _catalogSourceValue(source),
+                    _utcNow(),
+                    old['ID'],
+                  ],
+                );
+                if (!wasActive) sourceReactivated++;
+                if (wasActive) sourceUpdated++;
+              }
+            }
+          }
+          final existing = _database.raw.select(
+            'SELECT ID,MARKET_CODE,SYMBOL FROM SECURITIES WHERE CATALOG_SOURCE=? AND IS_ACTIVE=1',
+            [_catalogSourceValue(source)],
+          );
+          for (final row in existing) {
+            if (!seen.contains('${row['MARKET_CODE']}\u0000${row['SYMBOL']}')) {
+              _database.raw.execute(
+                'UPDATE SECURITIES SET IS_ACTIVE=0,UPDATED_AT=? WHERE ID=?',
+                [_utcNow(), row['ID']],
+              );
+              sourceDeactivated++;
+            }
+          }
+          _database.raw.execute(
+            'INSERT INTO SECURITY_CATALOG_SOURCES(SOURCE,LAST_SUCCESS_AT) VALUES(?,?) '
+            'ON CONFLICT(SOURCE) DO UPDATE SET LAST_SUCCESS_AT=excluded.LAST_SUCCESS_AT',
+            [_catalogSourceValue(source), _utcNow()],
+          );
+          return (
+            sourceAdded,
+            sourceUpdated,
+            sourceDeactivated,
+            sourceReactivated,
+          );
+        });
+        added += counts.$1;
+        updated += counts.$2;
+        deactivated += counts.$3;
+        reactivated += counts.$4;
+      } catch (error) {
+        failures[source] = error.toString();
+      }
+    }
+    final successRows = _database.rows('SECURITY_CATALOG_SOURCES');
+    return StockCatalogSyncResult(
+      added: added,
+      updated: updated,
+      deactivated: deactivated,
+      reactivated: reactivated,
+      failures: Map.unmodifiable(failures),
+      lastSuccessAt: Map.unmodifiable({
+        for (final row in successRows)
+          _catalogSource(row['SOURCE'] as String): DateTime.parse(
+            row['LAST_SUCCESS_AT'] as String,
+          ),
+      }),
+    );
   }
 
   /// Saves the latest successful price for one security.
@@ -1710,11 +1945,26 @@ class PortfolioDataApi {
               entryOrder: r['ENTRY_ORDER'] as int,
               kind: _kind(r['KIND'] as String),
               note: r['NOTE'] as String?,
+              isReadOnly: _eventUsesArchivedAccount(r),
             ),
           )
           .toList(),
       nextCursor: hasMore ? page.last['ID'] as String : null,
     );
+  }
+
+  bool _eventUsesArchivedAccount(Map<String, Object?> row) {
+    for (final key in const [
+      'STOCK_ACCOUNT_ID',
+      'FUNDING_ACCOUNT_ID',
+      'INVESTMENT_ACCOUNT_ID',
+      'SOURCE_ACCOUNT_ID',
+      'TARGET_ACCOUNT_ID',
+    ]) {
+      final id = row[key] as String?;
+      if (id != null && _account(id)['IS_ARCHIVED'] == 1) return true;
+    }
+    return false;
   }
 
   void _validateLimit(int limit) {
@@ -2026,6 +2276,7 @@ class PortfolioDataApi {
           securityId: s['ID'] as String,
           symbol: s['SYMBOL'] as String,
           name: s['NAME'] as String,
+          marketCode: s['MARKET_CODE'] as String,
           cost: Money.fromScaledUnits(
             currencyCode: s['CURRENCY_CODE'] as String,
             units: ag.cost,
@@ -2037,6 +2288,15 @@ class PortfolioDataApi {
                 )
               : null,
           quantityUnits: ag.quantity / shareMultiplier,
+          realizedPnl: Money.fromScaledUnits(
+            currencyCode: s['CURRENCY_CODE'] as String,
+            units: ag.realized,
+          ),
+          dividendIncome: Money.fromScaledUnits(
+            currencyCode: s['CURRENCY_CODE'] as String,
+            units: ag.dividends,
+          ),
+          quoteRetrievedAt: _quoteRetrievedAt(s['ID'] as String),
         ),
       );
     }
@@ -2103,6 +2363,8 @@ class PortfolioDataApi {
           ? Money.fromScaledUnits(currencyCode: 'TWD', units: value)
           : null,
       isValuationComplete: valueComplete,
+      lastQuoteRetrievedAt: _latestTimestamp('STOCK_PRICES', 'RETRIEVED_AT'),
+      lastRateRetrievedAt: _latestTimestamp('EXCHANGE_RATES', 'RETRIEVED_AT'),
     );
   }
 
@@ -2138,6 +2400,7 @@ class PortfolioDataApi {
       securityId: securityId,
       symbol: s['SYMBOL'] as String,
       name: s['NAME'] as String,
+      marketCode: s['MARKET_CODE'] as String,
       cost: Money.fromScaledUnits(currencyCode: currency, units: ag.cost),
       value: ag.complete
           ? Money.fromScaledUnits(currencyCode: currency, units: ag.value!)
@@ -2151,6 +2414,7 @@ class PortfolioDataApi {
         currencyCode: currency,
         units: ag.dividends,
       ),
+      quoteRetrievedAt: _quoteRetrievedAt(securityId),
     );
   }
 
@@ -2315,6 +2579,22 @@ class PortfolioDataApi {
     return r.isEmpty ? null : r.first['RATE'] as int;
   }
 
+  DateTime? _quoteRetrievedAt(String securityId) {
+    final rows = _database.raw.select(
+      'SELECT RETRIEVED_AT FROM STOCK_PRICES WHERE SECURITY_ID=?',
+      [securityId],
+    );
+    return rows.isEmpty
+        ? null
+        : DateTime.parse(rows.single['RETRIEVED_AT'] as String);
+  }
+
+  DateTime? _latestTimestamp(String table, String column) {
+    final row = _database.raw.select('SELECT MAX($column) VALUE FROM $table');
+    final value = row.single['VALUE'] as String?;
+    return value == null ? null : DateTime.parse(value);
+  }
+
   int _toTwd(int units, String sourceCurrency, int rate) => roundRatio(
     BigInt.from(units) * BigInt.from(rate),
     BigInt.from(moneyMultipliers[sourceCurrency]! * exchangeRateMultiplier),
@@ -2348,12 +2628,38 @@ class PortfolioDataApi {
   ///     If the requested transaction does not exist or has the wrong type.
   Future<StockTransactionFormData> getStockTransactionForm({
     String? transactionId,
-  }) async => StockTransactionFormData(
-    securities: await searchSecurities(query: '', limit: 200),
-    existing: transactionId == null
+  }) async {
+    final existing = transactionId == null
         ? null
-        : _decodeStockInput(_stockEvent(transactionId)),
-  );
+        : _decodeStockInput(_stockEvent(transactionId));
+    final securities = await searchSecurities(query: '', limit: 200);
+    if (existing != null &&
+        !securities.any((security) => security.id == existing.securityId)) {
+      final row = _database.raw.select('SELECT * FROM SECURITIES WHERE ID=?', [
+        existing.securityId,
+      ]);
+      if (row.isEmpty) {
+        throw const DataApiException(
+          DataErrorCode.notFound,
+          'Security not found',
+        );
+      }
+      final security = row.single;
+      securities.insert(
+        0,
+        SecurityOption(
+          id: security['ID'] as String,
+          symbol: security['SYMBOL'] as String,
+          name: security['NAME'] as String,
+          marketCode: security['MARKET_CODE'] as String,
+          currencyCode: security['CURRENCY_CODE'] as String,
+          quoteSymbol: security['QUOTE_SYMBOL'] as String?,
+          isActive: security['IS_ACTIVE'] == 1,
+        ),
+      );
+    }
+    return StockTransactionFormData(securities: securities, existing: existing);
+  }
 
   /// Searches securities by symbol or display name.
   ///
@@ -2384,7 +2690,7 @@ class PortfolioDataApi {
     final q = '%${query.trim().toUpperCase()}%';
     return _database.raw
         .select(
-          'SELECT * FROM SECURITIES WHERE (? IS NULL OR MARKET_CODE=?) AND (SYMBOL LIKE ? OR upper(NAME) LIKE ?) ORDER BY MARKET_CODE,SYMBOL LIMIT ?',
+          'SELECT * FROM SECURITIES WHERE IS_ACTIVE=1 AND (? IS NULL OR MARKET_CODE=?) AND (SYMBOL LIKE ? OR upper(NAME) LIKE ?) ORDER BY MARKET_CODE,SYMBOL LIMIT ?',
           [marketCode, marketCode, q, q, limit],
         )
         .map(
@@ -2394,6 +2700,8 @@ class PortfolioDataApi {
             name: r['NAME'] as String,
             marketCode: r['MARKET_CODE'] as String,
             currencyCode: r['CURRENCY_CODE'] as String,
+            quoteSymbol: r['QUOTE_SYMBOL'] as String?,
+            isActive: r['IS_ACTIVE'] == 1,
           ),
         )
         .toList();
@@ -2994,6 +3302,7 @@ class PortfolioDataApi {
     'CATEGORIES',
     'ACCOUNTS',
     'SECURITIES',
+    'SECURITY_CATALOG_SOURCES',
     'TRANSACTIONS',
     'STOCK_TRANSACTIONS',
     'ACCOUNT_TRANSACTIONS',
@@ -3257,6 +3566,21 @@ class PortfolioDataApi {
       TrendPeriod.threeYears => DateTime.utc(now.year - 3, now.month, now.day),
     };
   }
+
+  String _catalogSourceValue(StockCatalogSource source) => switch (source) {
+    StockCatalogSource.twse => 'TWSE',
+    StockCatalogSource.tpex => 'TPEX',
+    StockCatalogSource.nasdaqListed => 'NASDAQ_LISTED',
+    StockCatalogSource.nasdaqOther => 'NASDAQ_OTHER',
+  };
+
+  StockCatalogSource _catalogSource(String value) => switch (value) {
+    'TWSE' => StockCatalogSource.twse,
+    'TPEX' => StockCatalogSource.tpex,
+    'NASDAQ_LISTED' => StockCatalogSource.nasdaqListed,
+    'NASDAQ_OTHER' => StockCatalogSource.nasdaqOther,
+    _ => throw StateError('Unknown stock catalog source: $value'),
+  };
 }
 
 class _Lot {

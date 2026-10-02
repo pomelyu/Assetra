@@ -51,7 +51,7 @@ void main() {
       ),
     );
     final inspection = await api.inspectBackup(backup);
-    expect(inspection.schemaVersion, '2');
+    expect(inspection.schemaVersion, '3');
     await api.replaceFromBackup(backup);
     expect((await api.getAccountDetail(account)).value!.units, 110);
     expect(

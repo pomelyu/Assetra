@@ -126,7 +126,7 @@ final detail = await api.getAccountDetail(accountB);
 |---|---|
 | 初始化／釋放 | `PortfolioDataApi.open`、`close`（資源生命週期，不是 view 業務操作） |
 | 股票總覽／明細 | `getStockOverview`、`listStockPositions`、`getStockDetail`、`listStockTransactions` |
-| 股票交易 | `getStockTransactionForm`、`searchSecurities`、`resolveSecurity`、`createStockTransaction`、`updateStockTransaction`、`deleteStockTransaction` |
+| 股票交易 | `getStockTransactionForm`、`searchSecurities`、`createStockTransaction`、`updateStockTransaction`、`deleteStockTransaction`（`resolveSecurity` 僅供匯入／測試資料建立，不屬於交易畫面流程） |
 | 帳戶總覽／明細 | `getAssetOverview`、`listAssetAccounts`、`getAccountDetail`、`listAccountTransactions` |
 | 一般／投資交易 | `getAccountTransactionForm`、`createAccountTransaction`、`updateAccountTransaction`、`deleteAccountTransaction` |
 | 可選交易估算 | `previewStockTransaction`、`previewAccountTransaction`；不寫入，不是 create/update 的必要前置操作 |
@@ -134,14 +134,20 @@ final detail = await api.getAccountDetail(accountB);
 | 分類 | `listCategories`、`createCategory`、`updateCategory`、`reorderCategories`、`deleteCategory` |
 | 報表 | `getCurrentAllocation`、`getCurrentCostValueComparison`、`getHistoricalTrend` |
 | 設定 | `getAppSettings`、`updateAppSettings`、`setBiometricLockEnabled` |
-| 行情 | `refreshMarketData` |
+| 股票目錄／行情 | `syncSecurityCatalog`、`refreshMarketData` |
 | 備份 | `exportBackup`、`inspectBackup`、`replaceFromBackup` |
 
 所有資料操作皆回傳 Future，一次呼叫只取得一次結果；不使用 watch、Stream、訂閱或資料變更通知。create 成功回傳 ID，失敗拋出 `DataApiException`；不另外以 true／false 隱藏失敗原因。不能將相同 create 呼叫視為可安全自動重試：第一版由畫面防止重複提交，API 未承諾 idempotency key。
 
 `StockBuyInput` 與 `AccountTransferInput` 是不可變輸入 class，分別屬於兩種交易輸入的 sealed class 家族。股息、轉帳等輸入不提供不適用的 fee 欄位。公開 API 中 `Money.units` 是實際幣別金額，`ShareQuantity.units` 是實際股數；呼叫端不接觸資料庫倍率。Data API 寫入時才將金額、匯率及股數轉為 schema 規定的整數，讀出時還原為實際數值。
 
-兩種 transaction input 的共通欄位包含可選 `name`。Data API 會 trim 名稱、拒絕超過 30 個字元的值，並在 null／空白時依交易類型與股票內容產生一次預設名稱；`AccountTransactionItem.name` 與 existing form input 回傳保存後的必填名稱。update 不允許改變既有 `KIND`，即使呼叫端繞過 UI 也會在刪除或重建事件前原子性拒絕。schema version 2 的 CSV 備份包含 `TRANSACTIONS.NAME`，只接受同為 version 2 的相容備份。
+兩種 transaction input 的共通欄位包含可選 `name`。Data API 會 trim 名稱、拒絕超過 30 個字元的值，並在 null／空白時依交易類型與股票內容產生一次預設名稱；`AccountTransactionItem.name` 與 existing form input 回傳保存後的必填名稱。update 不允許改變既有 `KIND`，即使呼叫端繞過 UI 也會在刪除或重建事件前原子性拒絕。schema version 3 的 CSV 備份包含交易名稱、證券目錄來源及 active 狀態，只接受同為 version 3 的相容備份。
+
+`HttpStockCatalogProvider` 直接解析 TWSE、TPEX 與 NASDAQ Trader 的四個公開來源。每個來源獨立成功或失敗；只有完整成功的來源可停用缺席代號。`YahooMarketDataProvider` 只接收由交易歷史推導出的 quote symbols；Yahoo 限流或缺少結果時，依標的改查 TWSE MIS、NASDAQ quote API 或免金鑰 USD/TWD 匯率來源。NASDAQ 備援先查股票，再以 ETF asset class 重試。缺值、非正價格、幣別不符或網路錯誤均不覆寫 `STOCK_PRICES`／`EXCHANGE_RATES`。
+
+`MarketRefreshResult.failures` 保留相容的完整失敗清單，並提供 `quoteFailures` 與 `rateFailures` 分類檢視；UI 不得把匯率失敗計入股票檔數。
+
+外部 provider 可回傳高於資料庫精度的價格與匯率；`refreshMarketData` 在呼叫 `saveStockPrice`／`saveExchangeRate` 前，依貨幣最小單位及匯率兩位小數四捨五入。公開的手動儲存 API 仍維持拒絕超額精度的契約。
 
 ## 3. 案例一：A 使用 B 的資金買入台積電
 

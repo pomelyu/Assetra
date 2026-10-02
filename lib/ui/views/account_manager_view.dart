@@ -32,9 +32,7 @@ class _AccountManagerViewState extends State<AccountManagerView> {
     final api = widget.api;
     if (api == null) return const _ManagedAccountsData([], {}, {});
     final allAccounts = await api.listManagedAccounts();
-    final accounts = allAccounts
-        .where((account) => account.detail.accountType != AccountType.stock)
-        .toList();
+    final accounts = allAccounts;
     final categoryNames = {
       for (final category in await api.listCategories())
         category.id: category.name,
@@ -171,6 +169,10 @@ class _AccountManagerViewState extends State<AccountManagerView> {
                     title: const Text('投資帳戶'),
                     onTap: () =>
                         Navigator.of(context).pop(AccountType.investment),
+                  ),
+                  ListTile(
+                    title: const Text('股票帳戶'),
+                    onTap: () => Navigator.of(context).pop(AccountType.stock),
                   ),
                 ],
               ),

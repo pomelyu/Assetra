@@ -27,6 +27,8 @@ enum ReportGroupBy { category, account }
 
 enum TrendPeriod { threeMonths, sixMonths, oneYear, threeYears, all }
 
+enum StockCatalogSource { twse, tpex, nasdaqListed, nasdaqOther }
+
 typedef AccountId = String;
 typedef CategoryId = String;
 typedef SecurityId = String;
@@ -304,6 +306,7 @@ class AccountTransactionItem {
   final int entryOrder;
   final TransactionKind kind;
   final String? note;
+  final bool isReadOnly;
   const AccountTransactionItem({
     required this.id,
     required this.name,
@@ -311,17 +314,67 @@ class AccountTransactionItem {
     required this.entryOrder,
     required this.kind,
     this.note,
+    this.isReadOnly = false,
   });
 }
 
 class SecurityOption {
   final String id, symbol, name, marketCode, currencyCode;
+  final String? quoteSymbol;
+  final bool isActive;
   const SecurityOption({
     required this.id,
     required this.symbol,
     required this.name,
     required this.marketCode,
     required this.currencyCode,
+    this.quoteSymbol,
+    this.isActive = true,
+  });
+}
+
+class StockCatalogEntry {
+  final String symbol, name, marketCode, currencyCode, quoteSymbol;
+  const StockCatalogEntry({
+    required this.symbol,
+    required this.name,
+    required this.marketCode,
+    required this.currencyCode,
+    required this.quoteSymbol,
+  });
+}
+
+abstract interface class StockCatalogProvider {
+  Future<List<StockCatalogEntry>> fetch(StockCatalogSource source);
+}
+
+class StockQuote {
+  final String quoteSymbol, currencyCode;
+  final num price;
+  final DateTime quotedAt;
+  const StockQuote({
+    required this.quoteSymbol,
+    required this.price,
+    required this.currencyCode,
+    required this.quotedAt,
+  });
+}
+
+abstract interface class StockMarketDataProvider {
+  Future<Map<String, StockQuote>> fetchQuotes(Set<String> quoteSymbols);
+}
+
+class StockCatalogSyncResult {
+  final int added, updated, deactivated, reactivated;
+  final Map<StockCatalogSource, String> failures;
+  final Map<StockCatalogSource, DateTime> lastSuccessAt;
+  const StockCatalogSyncResult({
+    required this.added,
+    required this.updated,
+    required this.deactivated,
+    required this.reactivated,
+    required this.failures,
+    required this.lastSuccessAt,
   });
 }
 
@@ -398,9 +451,10 @@ class AssetOverview {
 }
 
 class StockPositionSummary {
-  final String securityId, symbol, name;
-  final Money cost;
+  final String securityId, symbol, name, marketCode;
+  final Money cost, realizedPnl, dividendIncome;
   final Money? value;
+  final DateTime? quoteRetrievedAt;
 
   /// Actual number of shares; database scaling is not exposed.
   final double quantityUnits;
@@ -408,35 +462,50 @@ class StockPositionSummary {
     required this.securityId,
     required this.symbol,
     required this.name,
+    required this.marketCode,
     required this.cost,
+    required this.realizedPnl,
+    required this.dividendIncome,
     required this.value,
     required this.quantityUnits,
+    this.quoteRetrievedAt,
   });
+
+  Money? get unrealizedPnl => value == null
+      ? null
+      : Money.fromScaledUnits(
+          currencyCode: value!.currencyCode,
+          units: value!.scaledUnits - cost.scaledUnits,
+        );
 }
 
 class StockOverview {
   final List<StockPositionSummary> positions;
   final Money? totalCost, totalValue;
   final bool isValuationComplete;
+  final DateTime? lastQuoteRetrievedAt, lastRateRetrievedAt;
   const StockOverview({
     required this.positions,
     required this.totalCost,
     required this.totalValue,
     required this.isValuationComplete,
+    this.lastQuoteRetrievedAt,
+    this.lastRateRetrievedAt,
   });
 }
 
 class StockDetail extends StockPositionSummary {
-  final Money realizedPnl, dividendIncome;
   const StockDetail({
     required super.securityId,
     required super.symbol,
     required super.name,
+    required super.marketCode,
     required super.cost,
+    required super.realizedPnl,
+    required super.dividendIncome,
     required super.value,
     required super.quantityUnits,
-    required this.realizedPnl,
-    required this.dividendIncome,
+    super.quoteRetrievedAt,
   });
 }
 
@@ -568,6 +637,14 @@ class MarketRefreshResult {
     required this.rateSuccesses,
     required this.failures,
   });
+
+  List<String> get quoteFailures => failures
+      .where((failure) => !failure.startsWith('USD/TWD:'))
+      .toList(growable: false);
+
+  List<String> get rateFailures => failures
+      .where((failure) => failure.startsWith('USD/TWD:'))
+      .toList(growable: false);
 }
 
 class ExportResult {

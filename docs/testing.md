@@ -163,9 +163,18 @@ File: `test/data/manual_investment_transactions_test.dart`
 - [ ] 修改或刪除手動投資交易不改變既有快照
 - [ ] 手動投資 subtype 未使用的欄位保持 NULL
 
+## Stock Catalog Sync
+
+File: `test/data/stock_catalog_sync_test.dart`
+
+- [x] 四個來源可新增／更新證券且台股保留中文名稱與 `.TW`／`.TWO` quote symbol
+- [x] 成功來源可停用缺席證券並在再次出現時恢復
+- [x] 單一來源失敗不會停用該來源舊資料，其他來源仍可成功提交
+- [x] HTTP provider 排除測試代號並解析 TWSE、TPEX 與 NASDAQ 文字格式
+
 ## Market Data
 
-Planned file: `test/data/market_data_test.dart`
+File: `test/data/market_data_refresh_test.dart`
 
 - [ ] 可成功保存股票價格及匯率
 - [ ] 同一標的或幣別的第二次行情覆蓋第一筆
@@ -173,7 +182,12 @@ Planned file: `test/data/market_data_test.dart`
 - [ ] 禁止保存 TWD 到 TWD 匯率
 - [ ] 股票價格拒絕零、負數或錯誤幣別
 - [ ] 匯率拒絕零、負數或超過兩位小數
-- [ ] 行情更新失敗後保留舊價格與匯率
+- [x] 行情只追蹤曾有買賣者，包含零持股與封存帳戶並排除僅股息者
+- [x] 行情更新缺值後保留舊價格並回報失敗
+- [x] Yahoo provider 解析有效行情並忽略非正價格
+- [x] Yahoo 被限流或缺值時，台股、美股與 USD/TWD 可改用獨立備援來源
+- [x] NASDAQ 股票 asset class 查無 QQQ 時改以 ETF asset class 取得價格
+- [x] 外部行情與匯率超過資料庫精度時，寫入前依幣別／匯率倍率四捨五入
 - [ ] 行情失敗不建立快照
 - [ ] QUOTED_AT 與 RETRIEVED_AT 正確保存
 - [ ] View DTO 不輸出 stale 狀態與行情時間
@@ -214,7 +228,7 @@ Planned file: `test/data/settings_test.dart`
 File: `test/data/backup_and_restore_test.dart`
 
 - [x] 每週快照不重複且備份可還原完整資料: 驗證同週唯一性、基本檢查、完整覆蓋與 now point。
-- [x] schema version 2 備份可保存並還原交易名稱
+- [x] schema version 3 備份可保存並還原交易名稱及證券目錄狀態
 - [ ] 每張資料表都匯出為 CSV 且 NULL 值可還原
 - [ ] Manifest 包含 table 清單、row count 及 checksum
 - [ ] 備份損壞、checksum 不符或缺少檔案時拒絕
@@ -271,3 +285,5 @@ File: `test/ui_routing_test.dart`
 - [x] AccountTransactionView 可建立、載入及清空重產生交易名稱，拒絕超過 30 字元，且編輯時類型唯讀
 - [x] 投資利息保留於投資帳戶全部事件但不列入其入帳／出帳，資金帳戶投影仍列為入帳
 - [x] 從 AssetView 新增交易可選全部一般與投資類型，損益調整不顯示資金帳戶及費用
+- [x] 股票交易返回後重新載入不會讓 `setState` callback 回傳 Future
+- [x] 股票行情同步訊息分開顯示股票失敗數與匯率失敗，不把匯率誤算為股票

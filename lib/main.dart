@@ -17,6 +17,7 @@ import 'ui/views/category_manager_view.dart';
 import 'ui/views/report_view.dart';
 import 'ui/views/setting_view.dart';
 import 'ui/views/stock_view.dart';
+import 'ui/views/stock_transaction_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -138,7 +139,14 @@ class _AppShellState extends State<_AppShell> {
       localizations.setting,
     ];
     final views = [
-      StockView(title: labels[0]),
+      StockView(
+        title: labels[0],
+        api: widget.api,
+        onOpenSettings: () {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          setState(() => _selectedIndex = 3);
+        },
+      ),
       AssetView(
         title: labels[1],
         api: widget.api,
@@ -153,6 +161,8 @@ class _AppShellState extends State<_AppShell> {
         onOpenAccount: widget.api == null
             ? null
             : (String accountId) async {
+                final detail = await widget.api!.getAccountDetail(accountId);
+                if (!context.mounted) return;
                 await Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (BuildContext context) => AccountDetailView(
@@ -162,10 +172,15 @@ class _AppShellState extends State<_AppShell> {
                         await Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
                             builder: (BuildContext context) =>
-                                AccountTransactionView(
-                                  api: widget.api,
-                                  accountId: accountId,
-                                ),
+                                detail.accountType == AccountType.stock
+                                ? StockTransactionView(
+                                    api: widget.api,
+                                    stockAccountId: accountId,
+                                  )
+                                : AccountTransactionView(
+                                    api: widget.api,
+                                    accountId: accountId,
+                                  ),
                           ),
                         );
                       },
@@ -173,11 +188,17 @@ class _AppShellState extends State<_AppShell> {
                         await Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
                             builder: (BuildContext context) =>
-                                AccountTransactionView(
-                                  api: widget.api,
-                                  transactionId: transactionId,
-                                  accountId: accountId,
-                                ),
+                                detail.accountType == AccountType.stock
+                                ? StockTransactionView(
+                                    api: widget.api,
+                                    transactionId: transactionId,
+                                    stockAccountId: accountId,
+                                  )
+                                : AccountTransactionView(
+                                    api: widget.api,
+                                    transactionId: transactionId,
+                                    accountId: accountId,
+                                  ),
                           ),
                         );
                       },
@@ -189,10 +210,11 @@ class _AppShellState extends State<_AppShell> {
                         await Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
                             builder: (BuildContext context) =>
-                                detail.accountType == AccountType.investment
+                                detail.accountType != AccountType.general
                                 ? AccountEditInvestmentView(
                                     api: widget.api,
                                     accountId: accountId,
+                                    accountType: detail.accountType,
                                   )
                                 : AccountEditView(
                                     api: widget.api,
@@ -209,6 +231,7 @@ class _AppShellState extends State<_AppShell> {
       ReportView(title: labels[2]),
       SettingView(
         title: labels[3],
+        api: widget.api,
         onManageAccounts: () {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
@@ -218,8 +241,11 @@ class _AppShellState extends State<_AppShell> {
                   await Navigator.of(context).push<bool>(
                     MaterialPageRoute<bool>(
                       builder: (BuildContext context) =>
-                          accountType == AccountType.investment
-                          ? AccountEditInvestmentView(api: widget.api)
+                          accountType != AccountType.general
+                          ? AccountEditInvestmentView(
+                              api: widget.api,
+                              accountType: accountType,
+                            )
                           : AccountEditView(api: widget.api),
                     ),
                   );
@@ -229,10 +255,11 @@ class _AppShellState extends State<_AppShell> {
                       await Navigator.of(context).push<bool>(
                         MaterialPageRoute<bool>(
                           builder: (BuildContext context) =>
-                              accountType == AccountType.investment
+                              accountType != AccountType.general
                               ? AccountEditInvestmentView(
                                   api: widget.api,
                                   accountId: accountId,
+                                  accountType: accountType,
                                 )
                               : AccountEditView(
                                   api: widget.api,

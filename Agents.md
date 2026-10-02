@@ -77,6 +77,7 @@
 - 未封存的一般／投資帳戶可修改初始值，須原子性重算並驗證全部受影響交易，無效則拒絕；既有快照不變。
 - 交易任一端涉及封存帳戶即禁止新增、修改或刪除；改換交易帳戶亦不得繞過限制。有封存帳戶使用的分類不能刪除。
 - loading、empty、error 與 stale data 必須是明確且可恢復的 UI 狀態。
+- 股票代號由 SettingView 手動同步 TWSE、TPEX、NASDAQ listed 與 other-listed；同步消失者標記停用而不刪除。StockView 行情同步追蹤所有曾有買入／賣出者，包含零持股與封存帳戶，排除僅股息者。
 
 ### 2.3 Prototype Notes
 畫面的 prototype 定義在 `docs/prototype`

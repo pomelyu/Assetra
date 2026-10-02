@@ -5,8 +5,14 @@ import '../../data/data.dart';
 class AccountEditInvestmentView extends StatefulWidget {
   final PortfolioDataApi? api;
   final String? accountId;
+  final AccountType accountType;
 
-  const AccountEditInvestmentView({super.key, this.api, this.accountId});
+  const AccountEditInvestmentView({
+    super.key,
+    this.api,
+    this.accountId,
+    this.accountType = AccountType.investment,
+  });
 
   @override
   State<AccountEditInvestmentView> createState() =>
@@ -24,6 +30,7 @@ class _AccountEditInvestmentViewState extends State<AccountEditInvestmentView> {
   String _currency = 'TWD';
   bool _saving = false;
   bool _initialized = false;
+  AccountType get _accountType => widget.accountType;
 
   @override
   void dispose() {
@@ -48,8 +55,12 @@ class _AccountEditInvestmentViewState extends State<AccountEditInvestmentView> {
         name: _name.text.trim(),
         categoryId: _categoryId!,
         currencyCode: _currency,
-        initialCost: double.parse(_cost.text),
-        initialValue: double.parse(_value.text),
+        initialCost: _accountType == AccountType.stock
+            ? 0
+            : double.parse(_cost.text),
+        initialValue: _accountType == AccountType.stock
+            ? 0
+            : double.parse(_value.text),
         fundingAccountId: _fundingAccountId,
         note: _note.text.trim().isEmpty ? null : _note.text.trim(),
       );
@@ -61,7 +72,7 @@ class _AccountEditInvestmentViewState extends State<AccountEditInvestmentView> {
             currencyCode: input.currencyCode,
             initialCost: input.initialCost,
             initialValue: input.initialValue,
-            accountType: AccountType.investment,
+            accountType: _accountType,
             fundingAccountId: _fundingAccountId!,
             note: input.note,
           ),
@@ -84,7 +95,11 @@ class _AccountEditInvestmentViewState extends State<AccountEditInvestmentView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.accountId == null ? '新增投資帳戶' : '編輯投資帳戶'),
+        title: Text(
+          widget.accountId == null
+              ? (_accountType == AccountType.stock ? '新增股票帳戶' : '新增投資帳戶')
+              : (_accountType == AccountType.stock ? '編輯股票帳戶' : '編輯投資帳戶'),
+        ),
         leading: TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
           child: const Text('取消'),
@@ -100,9 +115,7 @@ class _AccountEditInvestmentViewState extends State<AccountEditInvestmentView> {
       body: FutureBuilder<InvestmentAccountEditorData>(
         future: widget.api?.getInvestmentAccountEditor(
           accountId: widget.accountId,
-          createAccountType: widget.accountId == null
-              ? AccountType.investment
-              : null,
+          createAccountType: widget.accountId == null ? _accountType : null,
         ),
         builder: (context, snapshot) {
           if (widget.api != null &&
@@ -200,27 +213,29 @@ class _AccountEditInvestmentViewState extends State<AccountEditInvestmentView> {
                     validator: (value) => value == null ? '必填' : null,
                   ),
                 ]),
-                const SizedBox(height: 16),
-                _section(context, '初始數值', [
-                  TextFormField(
-                    controller: _cost,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: true,
+                if (_accountType != AccountType.stock) ...[
+                  const SizedBox(height: 16),
+                  _section(context, '初始數值', [
+                    TextFormField(
+                      controller: _cost,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                      decoration: const InputDecoration(labelText: '初始成本'),
+                      validator: _moneyValidator,
                     ),
-                    decoration: const InputDecoration(labelText: '初始成本'),
-                    validator: _moneyValidator,
-                  ),
-                  TextFormField(
-                    controller: _value,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: true,
+                    TextFormField(
+                      controller: _value,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                      decoration: const InputDecoration(labelText: '初始價值'),
+                      validator: _moneyValidator,
                     ),
-                    decoration: const InputDecoration(labelText: '初始價值'),
-                    validator: _moneyValidator,
-                  ),
-                ]),
+                  ]),
+                ],
                 const SizedBox(height: 16),
                 _section(context, '備註', [
                   TextFormField(
