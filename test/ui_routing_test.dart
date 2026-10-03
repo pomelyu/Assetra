@@ -9,6 +9,52 @@ import 'package:assetra/ui/views/account_edit_investment_view.dart';
 import 'package:assetra/ui/views/account_transaction_view.dart';
 
 void main() {
+  testWidgets('AssetView 多幣別帳戶顯示換算後的 TWD 總現值', (WidgetTester tester) async {
+    final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
+    final api = await PortfolioDataApi.open(
+      databasePath: '${directory.path}/db.sqlite',
+    );
+    await api.createAccount(
+      const CreateAccountInput(
+        name: '台幣帳戶',
+        categoryId: 'default',
+        currencyCode: 'TWD',
+        initialCost: 1000,
+        initialValue: 1000,
+      ),
+    );
+    await api.createAccount(
+      const CreateAccountInput(
+        name: '美元帳戶',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 10,
+        initialValue: 10,
+      ),
+    );
+    await api.saveExchangeRate(
+      fromCurrencyCode: 'USD',
+      rate: 30,
+      quotedAt: DateTime.utc(2026, 10, 3),
+    );
+
+    await tester.pumpWidget(
+      AssetraApp(locale: const Locale('zh', 'TW'), api: api),
+    );
+    await tester.tap(find.text('資產'));
+    await tester.pumpAndSettle();
+
+    final totalValue = tester.widget<Text>(
+      find.byKey(const Key('asset-total-value')),
+    );
+    expect(totalValue.data, r'NT$1,300');
+    expect(find.text('2 個帳戶'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await api.close();
+    directory.deleteSync(recursive: true);
+  });
+
   testWidgets('資產交易 FAB 與帳戶管理可導向正確編輯頁', (WidgetTester tester) async {
     await tester.pumpWidget(const AssetraApp(locale: Locale('zh', 'TW')));
 
@@ -735,6 +781,74 @@ void main() {
           .value,
       cashId,
     );
+
+    await tester.pumpWidget(const SizedBox());
+    await api.close();
+    directory.deleteSync(recursive: true);
+  });
+
+  testWidgets('一般資金帳戶可載入股票投影並進入股票交易', (WidgetTester tester) async {
+    final directory = Directory.systemTemp.createTempSync('assetra-ui-test-');
+    final api = await PortfolioDataApi.open(
+      databasePath: '${directory.path}/db.sqlite',
+    );
+    final cashId = await api.createAccount(
+      const CreateAccountInput(
+        name: 'Firstrade account',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 1000,
+        initialValue: 1000,
+      ),
+    );
+    final stockId = await api.createInvestmentAccount(
+      CreateInvestmentAccountInput(
+        name: '美股帳戶',
+        categoryId: 'default',
+        currencyCode: 'USD',
+        initialCost: 0,
+        initialValue: 0,
+        accountType: AccountType.stock,
+        fundingAccountId: cashId,
+      ),
+    );
+    final securityId = await api.resolveSecurity(
+      const ResolveSecurityInput(
+        symbol: 'QQQ',
+        name: 'Invesco QQQ',
+        marketCode: 'US',
+        currencyCode: 'USD',
+      ),
+    );
+    await api.createStockTransaction(
+      StockBuyInput(
+        name: '投資買入 QQQ 1股',
+        occurredAt: '2026-01-01 10:00',
+        securityId: securityId,
+        stockAccountId: stockId,
+        fundingAccountId: cashId,
+        quantity: ShareQuantity(units: 1),
+        unitPrice: Money(currencyCode: 'USD', units: 100),
+        fee: Money(currencyCode: 'USD', units: 1),
+      ),
+    );
+
+    await tester.pumpWidget(
+      AssetraApp(locale: const Locale('zh', 'TW'), api: api),
+    );
+    await tester.tap(find.text('資產'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Firstrade account'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Firstrade account'), findsOneWidget);
+    expect(find.text('投資買入 QQQ 1股'), findsOneWidget);
+    expect(find.text('-USD 101.00'), findsOneWidget);
+
+    await tester.tap(find.text('投資買入 QQQ 1股'));
+    await tester.pumpAndSettle();
+    expect(find.text('編輯股票交易'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await api.close();

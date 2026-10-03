@@ -9,7 +9,8 @@ class AccountDetailView extends StatefulWidget {
   final PortfolioDataApi api;
   final String accountId;
   final Future<void> Function() onAddTransaction;
-  final Future<void> Function(String transactionId) onEditTransaction;
+  final Future<void> Function(AccountTransactionItem transaction)
+  onEditTransaction;
   final Future<void> Function()? onEditAccount;
 
   const AccountDetailView({
@@ -55,17 +56,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
         .items;
     final transactionIncoming = <String, bool?>{};
     for (final item in items) {
-      final form = await widget.api.getAccountTransactionForm(
-        transactionId: item.id,
-        accountId: widget.accountId,
-      );
-      final existing = form.existing;
-      if (existing != null) {
-        transactionIncoming[item.id] = _isIncomingForAccount(
-          existing,
-          widget.accountId,
-        );
-      }
+      transactionIncoming[item.id] = await _transactionIncoming(item);
     }
     return (
       detail: detail,
@@ -402,6 +393,31 @@ class _AccountDetailViewState extends State<AccountDetailView> {
     return false;
   }
 
+  Future<bool?> _transactionIncoming(AccountTransactionItem item) async {
+    if (_isStockTransaction(item.kind)) {
+      final input = (await widget.api.getStockTransactionForm(
+        transactionId: item.id,
+      )).existing;
+      if (input is StockBuyInput) {
+        return input.stockAccountId == widget.accountId;
+      }
+      if (input is StockSellInput) {
+        return input.fundingAccountId == widget.accountId;
+      }
+      if (input is StockDividendInput) {
+        return input.fundingAccountId == widget.accountId ? true : null;
+      }
+      return null;
+    }
+    final input = (await widget.api.getAccountTransactionForm(
+      transactionId: item.id,
+      accountId: widget.accountId,
+    )).existing;
+    return input == null
+        ? null
+        : _isIncomingForAccount(input, widget.accountId);
+  }
+
   Widget _transactionTile(
     AccountTransactionItem item,
   ) => FutureBuilder<({String? amount, IconData icon, Color color})>(
@@ -412,7 +428,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
       final positive = amount == null || !amount.startsWith('-');
       return InkWell(
         onTap: () async {
-          await widget.onEditTransaction(item.id);
+          await widget.onEditTransaction(item);
           _refresh();
         },
         child: Padding(
@@ -474,6 +490,37 @@ class _AccountDetailViewState extends State<AccountDetailView> {
 
   Future<({String? amount, IconData icon, Color color})>
   _transactionPresentation(AccountTransactionItem item) async {
+    if (_isStockTransaction(item.kind)) {
+      final input = (await widget.api.getStockTransactionForm(
+        transactionId: item.id,
+      )).existing;
+      if (input == null) {
+        return (
+          amount: null,
+          icon: _kindIcon(item.kind),
+          color: _kindColor(item.kind),
+        );
+      }
+      final settlement = (await widget.api.previewStockTransaction(input))
+          .settlementAmount;
+      final isFundingAccount = input.fundingAccountId == widget.accountId;
+      final value = switch (input) {
+        StockBuyInput() =>
+          isFundingAccount ? -settlement.units : settlement.units,
+        StockSellInput() =>
+          isFundingAccount ? settlement.units : -settlement.units,
+        StockDividendInput() => isFundingAccount ? settlement.units : null,
+      };
+      return (
+        amount: value == null
+            ? null
+            : _signedMoney(value, settlement.currencyCode),
+        icon: _kindIcon(item.kind),
+        color: value == null || value >= 0
+            ? const Color(0xff00A86B)
+            : const Color(0xffF43F5E),
+      );
+    }
     final input = (await widget.api.getAccountTransactionForm(
       transactionId: item.id,
       accountId: widget.accountId,
@@ -568,6 +615,11 @@ class _AccountDetailViewState extends State<AccountDetailView> {
 
   String _signedMoney(num value, String currency) =>
       '${value >= 0 ? '+' : '-'}${_money(value.abs(), currency)}';
+
+  bool _isStockTransaction(TransactionKind kind) =>
+      kind == TransactionKind.stockBuy ||
+      kind == TransactionKind.stockSell ||
+      kind == TransactionKind.stockDividend;
 
   Widget _accountTypeBadge(AccountType type) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

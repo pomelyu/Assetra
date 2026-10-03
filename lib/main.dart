@@ -184,24 +184,29 @@ class _AppShellState extends State<_AppShell> {
                           ),
                         );
                       },
-                      onEditTransaction: (String transactionId) async {
-                        await Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (BuildContext context) =>
-                                detail.accountType == AccountType.stock
-                                ? StockTransactionView(
-                                    api: widget.api,
-                                    transactionId: transactionId,
-                                    stockAccountId: accountId,
-                                  )
-                                : AccountTransactionView(
-                                    api: widget.api,
-                                    transactionId: transactionId,
-                                    accountId: accountId,
-                                  ),
-                          ),
-                        );
-                      },
+                      onEditTransaction:
+                          (AccountTransactionItem transaction) async {
+                            final isStockTransaction =
+                                transaction.kind == TransactionKind.stockBuy ||
+                                transaction.kind == TransactionKind.stockSell ||
+                                transaction.kind ==
+                                    TransactionKind.stockDividend;
+                            await Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (BuildContext context) =>
+                                    isStockTransaction
+                                    ? StockTransactionView(
+                                        api: widget.api,
+                                        transactionId: transaction.id,
+                                      )
+                                    : AccountTransactionView(
+                                        api: widget.api,
+                                        transactionId: transaction.id,
+                                        accountId: accountId,
+                                      ),
+                              ),
+                            );
+                          },
                       onEditAccount: () async {
                         final detail = await widget.api!.getAccountDetail(
                           accountId,

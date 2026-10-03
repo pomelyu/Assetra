@@ -22,9 +22,7 @@ class AssetView extends StatefulWidget {
 }
 
 class _AssetViewState extends State<AssetView> {
-  late Future<
-    ({List<AccountSummary> accounts, List<CategorySummary> categories})
-  >
+  late Future<({AssetOverview overview, List<CategorySummary> categories})>
   _data;
   String? _categoryId;
 
@@ -34,17 +32,24 @@ class _AssetViewState extends State<AssetView> {
     _data = _load();
   }
 
-  Future<({List<AccountSummary> accounts, List<CategorySummary> categories})>
+  Future<({AssetOverview overview, List<CategorySummary> categories})>
   _load() async {
     final api = widget.api;
     if (api == null) {
-      return (accounts: <AccountSummary>[], categories: <CategorySummary>[]);
+      return (
+        overview: const AssetOverview(
+          accounts: [],
+          totalCost: null,
+          totalValue: null,
+          isValuationComplete: false,
+        ),
+        categories: <CategorySummary>[],
+      );
     }
-    final accounts = (await api.listAssetAccounts(categoryId: _categoryId))
-        .items
-        .where((a) => a.detail.accountType != AccountType.stock)
-        .toList();
-    return (accounts: accounts, categories: await api.listCategories());
+    return (
+      overview: await api.getAssetOverview(categoryId: _categoryId),
+      categories: await api.listCategories(),
+    );
   }
 
   void _selectCategory(String? id) {
@@ -64,10 +69,7 @@ class _AssetViewState extends State<AssetView> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child:
                 FutureBuilder<
-                  ({
-                    List<AccountSummary> accounts,
-                    List<CategorySummary> categories,
-                  })
+                  ({AssetOverview overview, List<CategorySummary> categories})
                 >(
                   future: _data,
                   builder: (context, snapshot) {
@@ -118,7 +120,10 @@ class _AssetViewState extends State<AssetView> {
                                             fit: BoxFit.scaleDown,
                                             alignment: Alignment.centerLeft,
                                             child: Text(
-                                              _summary(data.accounts),
+                                              key: const Key(
+                                                'asset-total-value',
+                                              ),
+                                              _summary(data.overview),
                                               maxLines: 1,
                                               style: Theme.of(context)
                                                   .textTheme
@@ -141,23 +146,23 @@ class _AssetViewState extends State<AssetView> {
                                         children: [
                                           _summaryValueRow(
                                             '總成本',
-                                            _summaryTotalCost(data.accounts),
+                                            _summaryTotalCost(data.overview),
                                             const Color(0xff475569),
                                           ),
                                           const SizedBox(height: 3),
                                           _summaryValueRow(
                                             '總收益',
-                                            _signed(_totalPnl(data.accounts)),
-                                            _totalPnl(data.accounts) >= 0
+                                            _summaryPnl(data.overview),
+                                            (_totalPnl(data.overview) ?? 0) >= 0
                                                 ? const Color(0xff00A86B)
                                                 : const Color(0xffF43F5E),
                                           ),
                                           const SizedBox(height: 3),
                                           _summaryValueRow(
                                             '收益率',
-                                            _totalRate(data.accounts)
+                                            _totalRate(data.overview)
                                                 .replaceFirst('收益率 ', ''),
-                                            _totalPnl(data.accounts) >= 0
+                                            (_totalPnl(data.overview) ?? 0) >= 0
                                                 ? const Color(0xff00A86B)
                                                 : const Color(0xffF43F5E),
                                           ),
@@ -219,7 +224,7 @@ class _AssetViewState extends State<AssetView> {
                           ),
                         ),
                         Expanded(
-                          child: data.accounts.isEmpty
+                          child: data.overview.accounts.isEmpty
                               ? const Center(child: Text('尚未建立資料'))
                               : Column(
                                   children: [
@@ -273,12 +278,16 @@ class _AssetViewState extends State<AssetView> {
                                           padding: const EdgeInsets.only(
                                             bottom: 92,
                                           ),
-                                          itemCount: data.accounts.length,
+                                          itemCount:
+                                              data.overview.accounts.length,
                                           separatorBuilder: (_, _) =>
                                               const Divider(height: 1),
                                           itemBuilder: (context, index) =>
                                               _accountRow(
-                                                data.accounts[index].detail,
+                                                data
+                                                    .overview
+                                                    .accounts[index]
+                                                    .detail,
                                               ),
                                         ),
                                       ),
@@ -310,21 +319,9 @@ class _AssetViewState extends State<AssetView> {
     );
   }
 
-  String _summary(List<AccountSummary> accounts) {
-    if (accounts.isEmpty) return '0 個帳戶';
-    final currencies = accounts
-        .map((account) => account.detail.currencyCode)
-        .toSet();
-    return currencies.length == 1
-        ? _money(
-            accounts.fold<num>(
-              0,
-              (sum, account) => sum + (account.detail.value?.units ?? 0),
-            ),
-            currencies.single,
-          )
-        : '${accounts.length} 個帳戶';
-  }
+  String _summary(AssetOverview overview) => overview.totalValue == null
+      ? '估值未齊全'
+      : _money(overview.totalValue!.units, 'TWD');
 
   Widget _summaryValueRow(String label, String value, Color color) => Row(
     mainAxisSize: MainAxisSize.min,
@@ -459,22 +456,27 @@ class _AssetViewState extends State<AssetView> {
     );
   }
 
-  num _totalCost(List<AccountSummary> accounts) =>
-      accounts.fold<num>(0, (sum, item) => sum + item.detail.cost.units);
-  String _summaryTotalCost(List<AccountSummary> accounts) {
-    final currencies = accounts.map((item) => item.detail.currencyCode).toSet();
-    return currencies.length == 1
-        ? _money(_totalCost(accounts), currencies.single)
-        : '—';
+  String _summaryTotalCost(AssetOverview overview) => overview.totalCost == null
+      ? '—'
+      : _money(overview.totalCost!.units, 'TWD');
+
+  num? _totalPnl(AssetOverview overview) =>
+      overview.totalCost == null || overview.totalValue == null
+      ? null
+      : overview.totalValue!.units - overview.totalCost!.units;
+
+  String _summaryPnl(AssetOverview overview) {
+    final pnl = _totalPnl(overview);
+    return pnl == null ? '—' : _signed(pnl);
   }
 
-  num _totalPnl(List<AccountSummary> accounts) => accounts.fold<num>(
-    0,
-    (sum, item) => sum + item.detail.unrealizedPnl.units,
-  );
-  String _totalRate(List<AccountSummary> accounts) => _totalCost(accounts) == 0
-      ? '收益率 —'
-      : '收益率 ${_totalPnl(accounts) >= 0 ? '+' : ''}${(_totalPnl(accounts) / _totalCost(accounts) * 100).toStringAsFixed(1)}%';
+  String _totalRate(AssetOverview overview) {
+    final pnl = _totalPnl(overview);
+    final cost = overview.totalCost?.units;
+    if (pnl == null || cost == null || cost == 0) return '收益率 —';
+    return '收益率 ${pnl >= 0 ? '+' : ''}${(pnl / cost * 100).toStringAsFixed(1)}%';
+  }
+
   String _money(num units, String currency) {
     final pattern = currency == 'TWD' || currency == 'JPY'
         ? '#,##0'
